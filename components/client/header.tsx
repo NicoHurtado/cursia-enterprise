@@ -1,0 +1,28 @@
+"use client";
+
+import { signOut } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { LogOut, User } from "lucide-react";
+
+export function ClientHeader({ userName }: { userName?: string }) {
+  return (
+    <header className="h-16 border-b bg-background flex items-center justify-between px-6">
+      <h2 className="text-lg font-semibold">Dashboard de Cliente</h2>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-sm">
+          <User className="w-4 h-4" />
+          <span>{userName || "Cliente"}</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Salir
+        </Button>
+      </div>
+    </header>
+  );
+}
+
