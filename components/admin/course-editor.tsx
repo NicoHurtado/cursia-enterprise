@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, BookOpen, FileText, Video, HelpCircle, Layers, Pencil, Check, X, Play, Trash2 } from "lucide-react";
+import { Plus, BookOpen, FileText, Video, HelpCircle, Layers, Pencil, Check, X, Play, Trash2, GripVertical, Loader2 } from "lucide-react";
 import { ModuleManager } from "./module-manager";
 import { LessonEditor } from "./lesson-editor";
 import { FinalEvaluationBuilder } from "./final-evaluation-builder";
@@ -60,6 +60,10 @@ export function CourseEditor({ course }: CourseEditorProps) {
   const [activeTab, setActiveTab] = useState<"structure" | "evaluation">("structure");
   const [editingLessonTitle, setEditingLessonTitle] = useState<string | null>(null);
   const [editLessonTitle, setEditLessonTitle] = useState("");
+  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const [draggedLessonIndex, setDraggedLessonIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const selectedModuleData = course.modules.find((m) => m.id === selectedModule);
   const selectedLessonData = selectedModuleData?.lessons.find(
@@ -72,8 +76,9 @@ export function CourseEditor({ course }: CourseEditorProps) {
   }, [router]);
 
   const handleCreateLesson = async () => {
-    if (!selectedModule) return;
+    if (!selectedModule || isCreatingLesson) return;
 
+    setIsCreatingLesson(true);
     try {
       const response = await fetch(`/api/modules/${selectedModule}/lessons`, {
         method: "POST",
@@ -81,7 +86,7 @@ export function CourseEditor({ course }: CourseEditorProps) {
         body: JSON.stringify({
           title: "Nueva Lección",
           content: "",
-          order: selectedModuleData?.lessons.length || 0,
+          order: (selectedModuleData?.lessons.reduce((max, l) => Math.max(max, l.order), -1) ?? -1) + 1,
         }),
       });
 
@@ -92,6 +97,55 @@ export function CourseEditor({ course }: CourseEditorProps) {
       }
     } catch (error) {
       console.error("Error creating lesson:", error);
+    } finally {
+      setIsCreatingLesson(false);
+    }
+  };
+
+  const handleLessonDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedLessonIndex(index);
+    // Use a small delay to make the original item look slightly transparent
+    // but still draggable. Native DnD can be tricky with React state.
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleLessonDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedLessonIndex === null || draggedLessonIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleLessonDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndex = draggedLessonIndex;
+    setDraggedLessonIndex(null);
+    setDragOverIndex(null);
+
+    if (sourceIndex === null || sourceIndex === targetIndex || !selectedModule || !selectedModuleData) {
+      return;
+    }
+
+    setIsReordering(true);
+    try {
+      const lessons = [...selectedModuleData.lessons];
+      const [movedLesson] = lessons.splice(sourceIndex, 1);
+      lessons.splice(targetIndex, 0, movedLesson);
+
+      const response = await fetch(`/api/modules/${selectedModule}/lessons/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonIds: lessons.map((l) => l.id),
+        }),
+      });
+
+      if (response.ok) {
+        handleRefresh();
+      }
+    } catch (error) {
+      console.error("Error reordering lessons:", error);
+    } finally {
+      setIsReordering(false);
     }
   };
 
@@ -275,14 +329,30 @@ export function CourseEditor({ course }: CourseEditorProps) {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {selectedModuleData.lessons.map((lesson) => (
+                    <div className="space-y-2 relative">
+                      {isReordering && (
+                        <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                      )}
+                      {selectedModuleData.lessons.map((lesson, index) => (
                         <div
                           key={lesson.id}
-                          className={`p-4 border rounded-lg transition-colors ${selectedLesson === lesson.id
+                          draggable={!editingLessonTitle && !isReordering}
+                          onDragStart={(e) => handleLessonDragStart(e, index)}
+                          onDragOver={(e) => handleLessonDragOver(e, index)}
+                          onDrop={(e) => handleLessonDrop(e, index)}
+                          onDragEnd={() => {
+                            setDraggedLessonIndex(null);
+                            setDragOverIndex(null);
+                          }}
+                          className={`p-4 border rounded-lg transition-all duration-200 ${selectedLesson === lesson.id
                             ? "border-primary bg-primary/5"
-                            : "hover:bg-accent cursor-pointer"
-                            }`}
+                            : "hover:bg-accent border-transparent"
+                            } ${draggedLessonIndex === index ? "opacity-40 scale-95" : "opacity-100"}
+                            ${dragOverIndex === index ? "border-t-primary border-t-4" : ""}
+                            ${!editingLessonTitle && !isReordering ? "cursor-grab active:cursor-grabbing" : ""}
+                            bg-card cursor-pointer`}
                           onClick={() => {
                             if (editingLessonTitle !== lesson.id) {
                               setSelectedLesson(lesson.id);
@@ -291,6 +361,7 @@ export function CourseEditor({ course }: CourseEditorProps) {
                         >
                           {editingLessonTitle === lesson.id ? (
                             <div className="flex items-center gap-2">
+                              {/* ... keep existing input ... */}
                               <Input
                                 value={editLessonTitle}
                                 onChange={(e) => setEditLessonTitle(e.target.value)}
@@ -329,6 +400,7 @@ export function CourseEditor({ course }: CourseEditorProps) {
                           ) : (
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 flex-1">
+                                <GripVertical className="w-4 h-4 text-muted-foreground mr-1" />
                                 <FileText className="w-4 h-4" />
                                 <span className="font-medium">{lesson.title}</span>
                               </div>
@@ -369,9 +441,14 @@ export function CourseEditor({ course }: CourseEditorProps) {
                         variant="outline"
                         className="w-full"
                         onClick={handleCreateLesson}
+                        disabled={isCreatingLesson || isReordering}
                       >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar Lección
+                        {isCreatingLesson ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Plus className="w-4 h-4 mr-2" />
+                        )}
+                        {isCreatingLesson ? "Creando..." : "Agregar Lección"}
                       </Button>
                     </div>
                   </CardContent>

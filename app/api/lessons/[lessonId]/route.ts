@@ -18,6 +18,7 @@ const lessonUpdateSchema = z.object({
     z.array(lessonImageSchema),
     z.array(z.string()), // for backward compatibility
   ]).optional(),
+  order: z.number().optional(),
 });
 
 export async function PUT(
@@ -43,6 +44,7 @@ export async function PUT(
         ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
         ...(data.audioUrl !== undefined && { audioUrl: data.audioUrl }),
         ...(data.images !== undefined && { images: data.images }),
+        ...(data.order !== undefined && { order: data.order }),
       },
     });
 
