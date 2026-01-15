@@ -94,40 +94,32 @@ export default function SignInPage() {
           {process.env.NODE_ENV === "development" && (
             <div className="mt-8 pt-6 border-t border-slate-100">
               <p className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">
-                Modo Desarrollo: Acceso Rápido
+                Acceso Rápido
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full text-xs border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
                   onClick={() => signIn("credentials", { email: "admin@cursia.com", password: "password123", callbackUrl: "/" })}
                 >
-                  Admin
+                  Admin (Super Admin)
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full text-xs"
-                  onClick={() => signIn("credentials", { email: "user1@cursia.com", password: "password123", callbackUrl: "/" })}
+                  className="w-full text-xs border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  onClick={() => signIn("credentials", { email: "admin@empresa.com", password: "password123", callbackUrl: "/" })}
                 >
-                  Usuario 1
+                  Admin Empresa
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full text-xs"
-                  onClick={() => signIn("credentials", { email: "user2@cursia.com", password: "password123", callbackUrl: "/" })}
+                  className="w-full text-xs border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                  onClick={() => signIn("credentials", { email: "pedrosaldafo1@gmail.com", password: "password123", callbackUrl: "/" })}
                 >
-                  Usuario 2
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={() => signIn("credentials", { email: "user3@cursia.com", password: "password123", callbackUrl: "/" })}
-                >
-                  Usuario 3
+                  Estudiante (Pedro)
                 </Button>
               </div>
             </div>

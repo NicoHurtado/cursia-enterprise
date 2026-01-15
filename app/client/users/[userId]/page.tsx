@@ -142,13 +142,25 @@ export default async function UserDetailPage({
                       </div>
                       <div>
                         {finalEvalAttempt ? (
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xl font-bold ${finalEvalAttempt.passed ? 'text-green-600' : 'text-red-600'}`}>
-                              {finalEvalAttempt.score}%
-                            </span>
-                            <Badge variant={finalEvalAttempt.passed ? 'default' : 'destructive'} className="text-xs">
-                              {finalEvalAttempt.passed ? 'Aprobado' : 'Reprobado'}
-                            </Badge>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xl font-bold ${finalEvalAttempt.passed ? 'text-green-600' : 'text-red-600'}`}>
+                                {finalEvalAttempt.score}%
+                              </span>
+                              <Badge variant={finalEvalAttempt.passed ? 'default' : 'destructive'} className="text-xs">
+                                {finalEvalAttempt.passed ? 'Aprobado' : 'Reprobado'}
+                              </Badge>
+                            </div>
+                            {(finalEvalAttempt as any).aiScore >= 70 && (
+                              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-amber-700 text-xs font-bold mb-1">
+                                  <span className="animate-pulse">⚠️</span> SOSPECHA DE IA ({(finalEvalAttempt as any).aiScore}%)
+                                </div>
+                                <p className="text-[10px] text-amber-600 leading-tight">
+                                  {(finalEvalAttempt as any).aiReasoning}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">No presentada</span>

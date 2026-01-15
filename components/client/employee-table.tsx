@@ -23,11 +23,16 @@ interface Employee {
     id: string;
     status: string;
     totalTimeSpent: number;
-    course: { title: string };
+    course: {
+      title: string;
+      modules: Array<{
+        _count: { lessons: number }
+      }>;
+    };
     moduleProgress: Array<{ completed: boolean }>;
     lessonProgress: Array<{ completed: boolean }>;
     quizAttempts: Array<{ score: number }>;
-    evaluationAttempts: Array<{ score: number; passed: boolean }>;
+    evaluationAttempts: Array<{ score: number; passed: boolean; aiScore?: number | null }>;
   }>;
 }
 
@@ -48,13 +53,14 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
   };
 
   const calculateProgress = (enrollment: Employee["enrollments"][0]) => {
-    const totalLessons = enrollment.lessonProgress.length;
+    const totalLessons = enrollment.course.modules.reduce(
+      (acc, mod) => acc + mod._count.lessons,
+      0
+    );
     const completedLessons = enrollment.lessonProgress.filter(
       (lp) => lp.completed
     ).length;
-    return totalLessons > 0
-      ? formatPercentage(completedLessons, totalLessons)
-      : 0;
+    return formatPercentage(completedLessons, totalLessons);
   };
 
   const getAverageQuizScore = (enrollment: Employee["enrollments"][0]) => {
@@ -120,9 +126,16 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
                   <TableCell>
                     {finalEval ? (
                       <div className="space-y-1">
-                        <span className="text-sm">
-                          {finalEval.score}%
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm">
+                            {finalEval.score}%
+                          </span>
+                          {finalEval.aiScore && finalEval.aiScore >= 70 && (
+                            <span title={`Sospecha de IA: ${finalEval.aiScore}%`} className="cursor-help">
+                              ⚠️
+                            </span>
+                          )}
+                        </div>
                         <Badge
                           className={
                             finalEval.passed

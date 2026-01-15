@@ -82,6 +82,7 @@ model Course {
   companyId       String?
   creatorId       String
   expertId        String?
+  coverImage      String?
   approvedAt      DateTime?
   publishedAt     DateTime?
   createdAt       DateTime         @default(now())
@@ -255,6 +256,8 @@ model EvaluationAttempt {
   score        Int
   passed       Boolean
   answers      Json
+  aiScore      Int?
+  aiReasoning  String?
   completedAt  DateTime        @default(now())
   enrollment   Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   evaluation   FinalEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)

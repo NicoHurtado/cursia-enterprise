@@ -12,7 +12,15 @@ async function getEmployees(companyId: string) {
     include: {
       enrollments: {
         include: {
-          course: { select: { title: true } },
+          course: {
+            include: {
+              modules: {
+                include: {
+                  _count: { select: { lessons: true } }
+                }
+              }
+            }
+          },
           moduleProgress: true,
           lessonProgress: true,
           quizAttempts: true,

@@ -66,21 +66,33 @@ export async function POST(
 
     const gradedResults = await Promise.all(gradingPromises);
 
-    // Calculate total
+    // Calculate total score and aggregate AI metrics
     totalScore = gradedResults.reduce((acc, curr) => acc + curr.weightedScore, 0);
     const finalScore = Math.round(totalScore);
     const passed = finalScore >= enrollment.course.finalEvaluation.passingScore;
 
-    // Save attempt with detailed feedback
+    const avgAiScore = Math.round(
+      gradedResults.reduce((acc, curr) => acc + (curr as any).aiScore, 0) / gradedResults.length
+    );
+
+    // Filter for reasoning where AI score is high (significant)
+    const significantReasoning = gradedResults
+      .filter((r: any) => r.aiScore > 50)
+      .map((r: any) => `P${r.questionId}: ${r.aiReasoning}`)
+      .join(" | ");
+
+    // Save attempt with detailed feedback and AI detection
     const attempt = await prisma.evaluationAttempt.create({
       data: {
         enrollmentId,
         evaluationId: enrollment.course.finalEvaluation.id,
         score: finalScore,
         passed,
+        aiScore: avgAiScore,
+        aiReasoning: significantReasoning || "No se detectaron patrones claros de IA.",
         answers: {
           rawAnswers: answers,
-          gradingDetails: gradedResults
+          gradingDetails: gradedResults,
         } as any,
       },
     });
