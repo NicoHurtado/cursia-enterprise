@@ -43,5 +43,31 @@ export async function PUT(
   }
 }
 
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ moduleId: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { moduleId } = await params;
+
+    await prisma.module.delete({
+      where: { id: moduleId },
+    });
+
+    return NextResponse.json({ message: "Module deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting module:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 
 

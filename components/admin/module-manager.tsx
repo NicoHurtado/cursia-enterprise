@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, GripVertical, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Plus, GripVertical, Pencil, Check, X, Loader2, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Module {
@@ -177,6 +177,27 @@ export function ModuleManager({
     }
   };
 
+  const handleDeleteModule = async (moduleId: string) => {
+    if (!confirm("¿Estás seguro de que quieres eliminar este módulo? Esta acción no se puede deshacer y borrará todas las lecciones asociadas.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/modules/${moduleId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        onModuleUpdate?.();
+      } else {
+        alert("Error al eliminar el módulo");
+      }
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      alert("Error al eliminar el módulo");
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -278,6 +299,14 @@ export function ModuleManager({
                     onClick={() => handleStartEdit(module)}
                   >
                     <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteModule(module.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               )}
