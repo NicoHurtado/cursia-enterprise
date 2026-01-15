@@ -14,6 +14,16 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Download, Eye } from "lucide-react";
 import { formatTime, formatPercentage } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, Bot } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -32,8 +42,27 @@ interface Employee {
     moduleProgress: Array<{ completed: boolean }>;
     lessonProgress: Array<{ completed: boolean }>;
     quizAttempts: Array<{ score: number }>;
-    evaluationAttempts: Array<{ score: number; passed: boolean; aiScore?: number | null }>;
+    evaluationAttempts: Array<{
+      score: number;
+      passed: boolean;
+      aiScore?: number | null;
+      answers: any;
+    }>;
   }>;
+}
+
+interface EvaluationDetail {
+  questionIndex: number;
+  score: number;
+  feedback: string;
+  suspectedAI?: boolean;
+  aiSuspicionReason?: string;
+}
+
+interface GradingResult {
+  questionResults: EvaluationDetail[];
+  overallFeedback: string;
+  overallScore: number;
 }
 
 interface EmployeeTableProps {
@@ -41,7 +70,13 @@ interface EmployeeTableProps {
 }
 
 export function EmployeeTable({ employees }: EmployeeTableProps) {
-  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<{
+    userName: string;
+    courseTitle: string;
+    score: number;
+    passed: boolean;
+    answers: { rawAnswers: string[], grading: GradingResult }
+  } | null>(null);
 
   const getEnrollmentStatus = (status: string) => {
     const statusMap = {
@@ -155,7 +190,18 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setSelectedEmployee(employee.id)}
+                        onClick={() => {
+                          if (finalEval) {
+                            setSelectedEvaluation({
+                              userName: employee.name || employee.email,
+                              courseTitle: enrollment.course.title,
+                              score: finalEval.score,
+                              passed: finalEval.passed,
+                              answers: finalEval.answers as any,
+                            });
+                          }
+                        }}
+                        disabled={!finalEval}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -180,7 +226,70 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
           No hay empleados registrados
         </div>
       )}
-    </div>
+
+      <Dialog open={!!selectedEvaluation} onOpenChange={(open) => !open && setSelectedEvaluation(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detalle de Evaluación Final</DialogTitle>
+            <DialogDescription>
+              {selectedEvaluation?.userName} - {selectedEvaluation?.courseTitle}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEvaluation && (
+            <div className="flex-1 overflow-hidden flex flex-col gap-4">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Nota Final</p>
+                  <p className="text-2xl font-bold">{selectedEvaluation.score}%</p>
+                </div>
+                <Badge variant={selectedEvaluation.passed ? "default" : "destructive"}>
+                  {selectedEvaluation.passed ? "Aprobado" : "Reprobado"}
+                </Badge>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-900">
+                <p className="font-semibold mb-1">Feedback General:</p>
+                {selectedEvaluation.answers.grading.overallFeedback}
+              </div>
+
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-6">
+                  {selectedEvaluation.answers.grading.questionResults?.map((result, idx) => (
+                    <div key={idx} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">Pregunta {idx + 1}</h4>
+                        <Badge variant="outline">Puntaje: {result.score}/100</Badge>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground font-medium">Respuesta del estudiante:</p>
+                        <p className="text-sm bg-muted p-2 rounded">{selectedEvaluation.answers.rawAnswers[idx]}</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground font-medium">Feedback:</p>
+                        <p className="text-sm">{result.feedback}</p>
+                      </div>
+
+                      {result.suspectedAI && (
+                        <Alert variant="destructive" className="bg-red-50 border-red-200">
+                          <Bot className="h-4 w-4" />
+                          <AlertTitle>Sospecha de contenido generado por IA</AlertTitle>
+                          <AlertDescription className="text-xs mt-1">
+                            {result.aiSuspicionReason || "El patrón de escritura sugiere uso de herramientas de IA."}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div >
   );
 }
 

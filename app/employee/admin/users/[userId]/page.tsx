@@ -9,6 +9,7 @@ import { formatTime } from "@/lib/utils";
 import { Clock, BookOpen, GraduationCap, ArrowLeft, Mail, Calendar } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { EvaluationStatusDisplay } from "@/components/client/evaluation-status-display";
 
 export default async function ContractAdminUserPage({
   params,
@@ -150,14 +151,15 @@ export default async function ContractAdminUserPage({
                       </div>
                       <div>
                         {finalEvalAttempt ? (
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xl font-bold ${finalEvalAttempt.score >= passingScore ? 'text-green-600' : 'text-red-600'}`}>
-                              {finalEvalAttempt.score}%
-                            </span>
-                            <Badge variant={finalEvalAttempt.score >= passingScore ? 'default' : 'destructive'} className="text-xs">
-                              {finalEvalAttempt.score >= passingScore ? 'Aprobado' : 'Reprobado'}
-                            </Badge>
-                          </div>
+                          <EvaluationStatusDisplay
+                            score={finalEvalAttempt.score}
+                            passed={finalEvalAttempt.score >= passingScore}
+                            aiScore={(finalEvalAttempt as any).aiScore}
+                            aiReasoning={(finalEvalAttempt as any).aiReasoning}
+                            answers={(finalEvalAttempt as any).answers}
+                            userName={targetUser.name || targetUser.email}
+                            courseTitle={enrollment.course.title}
+                          />
                         ) : (
                           <span className="text-sm text-muted-foreground">No presentada</span>
                         )}

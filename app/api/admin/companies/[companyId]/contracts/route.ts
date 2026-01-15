@@ -10,6 +10,7 @@ const contractSchema = z.object({
   documentUrl: z.string().optional(),
   courseIds: z.array(z.string()).optional(),
   adminEmail: z.string().email().optional(),
+  maxUsers: z.coerce.number().min(0).optional(),
 });
 
 export async function POST(
@@ -31,7 +32,7 @@ export async function POST(
       return new NextResponse(JSON.stringify(result.error.issues), { status: 400 });
     }
 
-    const { startDate, endDate, status, documentUrl, courseIds, adminEmail } = result.data;
+    const { startDate, endDate, status, documentUrl, courseIds, adminEmail, maxUsers } = result.data;
 
     // Normalize dates
     startDate.setHours(0, 0, 0, 0);
@@ -61,6 +62,7 @@ export async function POST(
         endDate,
         status: status || "ACTIVE",
         documentUrl,
+        maxUsers: maxUsers || 0,
         adminId,
         adminEmail,
         courses: courseIds

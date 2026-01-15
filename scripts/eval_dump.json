@@ -1,0 +1,194 @@
+[
+  {
+    "id": "cmkg2ihwq0001oa0xnzdw7zt7",
+    "enrollmentId": "cmkfqgfha000e2172w9vwv9ld",
+    "evaluationId": "cmkg283ws0001mg3ju9826hsq",
+    "score": 86,
+    "passed": true,
+    "answers": {
+      "rawAnswers": {
+        "0": "Información en tiempo real, tendencias actuales e integración con Google Workspace.",
+        "1": "Reiniciar en un chat nuevo con un resumen, porque se llenó su ventana de contexto.",
+        "2": "Rol (gestor), objetivo claro, límites (tono amable) y formato de email.",
+        "3": "Pedirle que use lenguaje natural, sea más corto y prohibir palabras específicas.",
+        "4": "Proporcionando 2 o 3 ejemplos reales del formato que esperas (Few-shot prompting).",
+        "5": "Proporcionando 2 o 3 ejemplos reales del formato que esperas (Few-shot prompting).",
+        "6": "Verificarlas siempre en fuentes oficiales; la IA puede inventar cifras con seguridad.",
+        "7": "Entregar los bullets y pedir que los expanda siguiendo una estructura formal.",
+        "8": "Pegar todo el texto y pedir: resumen, puntos de conflicto y tareas pendientes.",
+        "9": "Traducir cambia el idioma; localizar adapta la cultura y modismos para que suene natural.",
+        "10": "Mantiene el formato original de archivos y usa glosarios para coherencia técnica.",
+        "11": "Copilot trabaja dentro del documento, lee tu texto y aplica formato automáticamente.",
+        "12": "Usar ChatGPT para crear el prompt técnico en inglés y luego llevarlo a un generador de imágenes.",
+        "13": "Midjourney para estética y realismo; DALL-E 3 para instrucciones complejas y precisión.",
+        "14": "Google Veo, por su alta fidelidad y consistencia visual.",
+        "15": "Pedir a una IA de texto que redacte detalles de luz, cámara y movimiento en inglés.",
+        "16": "Para crear voces humanas realistas para locuciones, audiolibros o videos.",
+        "17": "Subirlo a la IA y hacer preguntas específicas sobre lo que te afecta directamente.",
+        "18": "Subir la foto y pedir que extraiga los datos en formato de tabla de texto o CSV.",
+        "19": "Un chat es un asistente pasivo que responde preguntas; un agente es un asistente activo que ejecuta procesos de varios pasos para completar una misión.",
+        "20": "Objetivo (misión), Instrucciones (comportamiento), Herramientas (acceso a apps), Contexto/Memoria y Límites (qué no hacer).",
+        "21": "Decisiones éticas sobre personas, movimientos de dinero, manejo de información confidencial extrema o envío de comunicaciones oficiales sin revisión humana."
+      },
+      "gradingDetails": [
+        {
+          "aiScore": 90,
+          "feedback": "¡Excelente respuesta! Has capturado los puntos clave de manera clara y concisa. Tu respuesta muestra una buena comprensión de las fortalezas de Gemini. Quizás podrías agregar un poco más de detalle sobre cómo la integración con Google Workspace es beneficiosa, pero en general es una respuesta muy sólida.",
+          "questionId": 0,
+          "studentAnswer": "Información en tiempo real, tendencias actuales e integración con Google Workspace.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 100,
+          "feedback": "Excellent answer! You correctly identified that the issue is the AI's context window becoming full, leading to errors and forgetfulness. Restarting the conversation with a clean summary is the ideal solution. Well done!",
+          "questionId": 1,
+          "studentAnswer": "Reiniciar en un chat nuevo con un resumen, porque se llenó su ventana de contexto.",
+          "weightedScore": 4.545454545454546
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Excelente respuesta. Has capturado los elementos clave que deben incluirse en el prompt para que la IA redacte un correo de cobranza útil y profesional: el rol, el objetivo claro, los límites en cuanto al tono, y el formato del email. Tu respuesta es concisa y precisa. Bien hecho.",
+          "questionId": 2,
+          "studentAnswer": "Rol (gestor), objetivo claro, límites (tono amable) y formato de email.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 0,
+          "feedback": "Error al calificar automáticamente. Se requiere revisión manual.",
+          "questionId": 3,
+          "studentAnswer": "Pedirle que use lenguaje natural, sea más corto y prohibir palabras específicas.",
+          "weightedScore": 0
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Excelente respuesta. Has comprendido perfectamente la idea de utilizar ejemplos concretos (few-shot prompting) para mostrarle a la IA el formato deseado para clasificar los comentarios de clientes. Tu respuesta es clara, concisa y directa, demostrando una sólida comprensión del tema.",
+          "questionId": 4,
+          "studentAnswer": "Proporcionando 2 o 3 ejemplos reales del formato que esperas (Few-shot prompting).",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Excelente respuesta. Has entendido correctamente la necesidad de adaptar la explicación del concepto técnico según la audiencia. Proporcionar ejemplos concretos del formato esperado es una sugerencia muy práctica y bien enfocada. Buen trabajo.",
+          "questionId": 5,
+          "studentAnswer": "Proporcionando 2 o 3 ejemplos reales del formato que esperas (Few-shot prompting).",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Buen trabajo, has identificado correctamente la necesidad de verificar los datos proporcionados por la IA en fuentes oficiales. Tu respuesta es clara y concisa. Podrías mejorar añadiendo más detalles sobre por qué es importante validar los datos, como el riesgo de tomar decisiones basadas en información falsa.",
+          "questionId": 6,
+          "studentAnswer": "Verificarlas siempre en fuentes oficiales; la IA puede inventar cifras con seguridad.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "¡Muy bien! Tu respuesta es clara y concisa. Has capturado los elementos clave de cómo pedirle a la IA que convierta las notas en un reporte formal. Quizás podrías agregar más detalles sobre el formato específico que desearías, como el número de secciones, el tipo de lenguaje a utilizar, etc. En general, has demostrado una buena comprensión del tema.",
+          "questionId": 7,
+          "studentAnswer": "Entregar los bullets y pedir que los expanda siguiendo una estructura formal.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 85,
+          "feedback": "Buen resumen general, aunque le falta más detalle sobre los puntos de conflicto y las tareas pendientes específicas que se deban realizar. Considere incluir esa información para una respuesta más completa.",
+          "questionId": 8,
+          "studentAnswer": "Pegar todo el texto y pedir: resumen, puntos de conflicto y tareas pendientes.",
+          "weightedScore": 3.863636363636364
+        },
+        {
+          "aiScore": 90,
+          "feedback": "¡Muy bien! Has captado correctamente la diferencia entre traducir y localizar un texto. Tu respuesta es concisa y precisa. Quizás podrías agregar un poco más de detalle sobre cómo la localización implica adaptar el contenido de manera más profunda que una simple traducción literal.",
+          "questionId": 9,
+          "studentAnswer": "Traducir cambia el idioma; localizar adapta la cultura y modismos para que suene natural.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 85,
+          "feedback": "Good response! You captured the key benefits of using DeepL for enterprise translations, including maintaining document formatting and using specialized glossaries. To improve, you could expand a bit more on how DeepL's technical and legal translation capabilities make it superior to ChatGPT in those contexts.",
+          "questionId": 10,
+          "studentAnswer": "Mantiene el formato original de archivos y usa glosarios para coherencia técnica.",
+          "weightedScore": 3.863636363636364
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Buen trabajo, has capturado los elementos clave de cómo Microsoft Copilot funciona dentro de Word de manera clara y concisa. Tu respuesta demuestra una buena comprensión del tema. Para una puntuación más alta, podrías haber incluido algunos detalles adicionales sobre las capacidades únicas de Copilot, como la generación de borradores, la sugerencia de mejoras de redacción, etc.",
+          "questionId": 11,
+          "studentAnswer": "Copilot trabaja dentro del documento, lee tu texto y aplica formato automáticamente.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "¡Muy buen trabajo! Has logrado capturar la idea clave de utilizar una IA como ChatGPT para generar un prompt técnico detallado, y luego usar herramientas de generación de imágenes como Midjourney o DALL-E para crear la imagen final. Tu respuesta es concisa y directa. Quizás podrías agregar un poco más de detalle sobre cómo estructurar el prompt, o mencionar algunos consejos adicionales, pero en general es una excelente respuesta.",
+          "questionId": 12,
+          "studentAnswer": "Usar ChatGPT para crear el prompt técnico en inglés y luego llevarlo a un generador de imágenes.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 80,
+          "feedback": "La respuesta es correcta y breve, pero le falta un poco de detalle y explicación en comparación a la respuesta ideal. Sugiero expandir un poco más la diferencia entre el uso de Midjourney y DALL-E 3, como se menciona en la respuesta ideal.",
+          "questionId": 13,
+          "studentAnswer": "Midjourney para estética y realismo; DALL-E 3 para instrucciones complejas y precisión.",
+          "weightedScore": 3.636363636363637
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Excellent answer! You've accurately identified the key strengths of Google Veo as the best AI video creation tool currently - its high fidelity and advanced generation capabilities. Your response is concise and directly addresses the question. Well done!",
+          "questionId": 14,
+          "studentAnswer": "Google Veo, por su alta fidelidad y consistencia visual.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 80,
+          "feedback": "Su respuesta es bastante buena, pero le falta un poco más de detalle en cuanto a los elementos específicos que incluiría en el prompt, como las texturas, movimientos de cámara y Google Veo. Intente expandir un poco más su respuesta para mostrar un mayor nivel de comprensión del proceso completo.",
+          "questionId": 15,
+          "studentAnswer": "Pedir a una IA de texto que redacte detalles de luz, cámara y movimiento en inglés.",
+          "weightedScore": 3.636363636363637
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Buena respuesta, has logrado capturar las principales funcionalidades de ElevenLabs de manera concisa y precisa. Para obtener la puntuación máxima, podrías agregar algunos ejemplos específicos de cómo podrías usar esta herramienta en tu trabajo.",
+          "questionId": 16,
+          "studentAnswer": "Para crear voces humanas realistas para locuciones, audiolibros o videos.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "¡Muy bien! Has entendido correctamente la idea de usar la IA de manera eficiente para revisar documentos voluminosos. Hacer preguntas específicas sobre áreas clave es una estrategia excelente, en lugar de pedir un resumen general que podría omitir detalles importantes. Tu respuesta muestra una buena comprensión del tema.",
+          "questionId": 17,
+          "studentAnswer": "Subirlo a la IA y hacer preguntas específicas sobre lo que te afecta directamente.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 90,
+          "feedback": "Excelente respuesta. Usted ha comprendido bien el proceso de extraer datos de una factura física a formato digital utilizando IA. Su sugerencia de subir la foto y pedir que se extraigan los datos en formato de tabla o CSV es correcta y muy apropiada. Quizás podría añadir un poco más de detalle sobre los pasos específicos que la IA necesitaría para hacer esta tarea, pero en general, su respuesta cubre los puntos clave de manera clara y concisa.",
+          "questionId": 18,
+          "studentAnswer": "Subir la foto y pedir que extraiga los datos en formato de tabla de texto o CSV.",
+          "weightedScore": 4.090909090909092
+        },
+        {
+          "aiScore": 100,
+          "feedback": "Excelente respuesta. Su explicación clara y concisa demuestra una buena comprensión de la diferencia entre un chat normal de IA y un agente de IA.",
+          "questionId": 19,
+          "studentAnswer": "Un chat es un asistente pasivo que responde preguntas; un agente es un asistente activo que ejecuta procesos de varios pasos para completar una misión.",
+          "weightedScore": 4.545454545454546
+        },
+        {
+          "aiScore": 100,
+          "feedback": "Excelente respuesta, el estudiante ha demostrado un conocimiento profundo de los componentes esenciales de un agente de IA bien configurado. Su respuesta coincide completamente con el ideal proporcionado por el instructor.",
+          "questionId": 20,
+          "studentAnswer": "Objetivo (misión), Instrucciones (comportamiento), Herramientas (acceso a apps), Contexto/Memoria y Límites (qué no hacer).",
+          "weightedScore": 4.545454545454546
+        },
+        {
+          "aiScore": 100,
+          "feedback": "Excelente respuesta, has demostrado un profundo entendimiento de las tareas donde no se debe dejar que un agente de IA trabaje completamente solo. Tu respuesta cubre de manera concisa y precisa los principales puntos de interés, como las decisiones éticas, el manejo de dinero y la información confidencial. Mantienes un nivel de detalle adecuado sin ser demasiado extenso. ¡Bien hecho!",
+          "questionId": 21,
+          "studentAnswer": "Decisiones éticas sobre personas, movimientos de dinero, manejo de información confidencial extrema o envío de comunicaciones oficiales sin revisión humana.",
+          "weightedScore": 4.545454545454546
+        }
+      ]
+    },
+    "aiScore": 86,
+    "aiReasoning": "P0: undefined | P1: undefined | P2: undefined | P4: undefined | P5: undefined | P6: undefined | P7: undefined | P8: undefined | P9: undefined | P10: undefined | P11: undefined | P12: undefined | P13: undefined | P14: undefined | P15: undefined | P16: undefined | P17: undefined | P18: undefined | P19: undefined | P20: undefined | P21: undefined",
+    "completedAt": "2026-01-15T23:15:37.898Z"
+  }
+]
