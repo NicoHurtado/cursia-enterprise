@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { jsonrepair } from "jsonrepair";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -55,12 +56,29 @@ ${lesson.content || "No content provided yet."}
     - \`question\`: The question text (string).
     - \`options\`: An array of exactly 4 objects, each with:
         - \`text\`: The option text (string).
-        - \`isCorrect\`: Boolean (true for the correct answer, false otherwise).
+        - \`isCorrect\`: Boolean (true for ONLY ONE correct answer, false for all others).
     - \`explanation\`: A brief explanation of why the correct answer is correct (string).
-3.  **Difficulty:** Mixed (some easy, some medium, some hard).
-4.  **Language:** Spanish (or match the content language).
-5.  **Output:** Return ONLY the valid JSON array. Do not include markdown formatting like \`\`\`json or any conversational text.
-6.  **IMPORTANT:** Ensure all double quotes *inside* strings are properly escaped (e.g., \\"). If you need to use quotes inside the text, prefer single quotes (') to avoid JSON errors. Ensure the JSON is valid and parsable.
+3.  **CRITICAL JSON RULES:**
+    - Each question MUST have EXACTLY ONE option with isCorrect: true and THREE options with isCorrect: false
+    - NEVER mark multiple options as correct (isCorrect: true) - this is a common mistake, avoid it!
+    - Use ONLY straight double quotes ("), never curly/smart quotes ("")
+    - Avoid special characters like em-dashes (—), use regular hyphens (-)
+    - Do NOT use double quotes inside text strings - use single quotes (') instead
+    - Ensure all strings are properly closed
+    - Return ONLY valid JSON - no markdown, no code blocks, no extra text
+4.  **Example of correct format:**
+    {
+      "question": "What is 2+2?",
+      "options": [
+        {"text": "3", "isCorrect": false},
+        {"text": "4", "isCorrect": true},
+        {"text": "5", "isCorrect": false},
+        {"text": "6", "isCorrect": false}
+      ],
+      "explanation": "2+2 equals 4."
+    }
+5.  **Difficulty:** Mixed (some easy, some medium, some hard).
+6.  **Language:** Spanish (or match the content language).
 
 ${additionalInstructions ? `**Additional Instructions:**\n${additionalInstructions}` : ""}
     `.trim();
@@ -87,29 +105,71 @@ ${additionalInstructions ? `**Additional Instructions:**\n${additionalInstructio
     try {
       questions = JSON.parse(jsonString);
     } catch (e) {
-      console.error("Initial JSON parse failed. Attempting to sanitize...", e);
+      console.error("Initial JSON parse failed. Attempting to repair...", e);
       try {
-        // 1. naive sanitization: Replace " inside strings? Hard to know boundaries.
-        // 2. better: Ask model to use single quotes in prompt (done).
-        // 3. Last ditch: try to fix common errors or return error
-        // Let's rely on the prompt change first, but log specific error.
-        // Maybe simple regex to escape quotes that are not structural?
-        // Structural quotes: ": " | ", " | "question": | "options": | "text": | "isCorrect": | "explanation": | [{ | }] | false, | true,
+        // Step 1: Basic cleanup
+        let cleaned = jsonString;
 
-        // Let's just return the error but with better logging for now, relying on the prompt fix.
-        // Or, simple Replace:
-        // jsonString = jsonString.replace(/\\"/g, '"'); // Unescape first? No.
+        // Remove markdown code block markers
+        cleaned = cleaned.replace(/```json\s*/g, '').replace(/```\s*/g, '');
 
-        console.error("Failed JSON content:", jsonString);
-        return new NextResponse(`Failed to parse AI response as JSON. Raw: ${jsonString.substring(0, 100)}...`, { status: 500 });
+        // Replace ALL variations of smart/curly quotes with straight quotes
+        // This includes: " " ' ' (U+201C, U+201D, U+2018, U+2019)
+        cleaned = cleaned.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+
+        // Replace em-dashes and en-dashes
+        cleaned = cleaned.replace(/—/g, '-').replace(/–/g, '-');
+
+        // Remove control characters except newlines and tabs
+        cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+        console.log("Cleaned JSON (first 500 chars):", cleaned.substring(0, 500));
+
+        // Step 2: Try parsing cleaned JSON
+        try {
+          questions = JSON.parse(cleaned);
+        } catch (e2) {
+          // Step 3: Use jsonrepair library as last resort
+          console.log("Attempting JSON repair with jsonrepair library...");
+          const repaired = jsonrepair(cleaned);
+          console.log("Repaired JSON (first 500 chars):", repaired.substring(0, 500));
+          questions = JSON.parse(repaired);
+        }
       } catch (e2) {
-        return new NextResponse("Failed to generate valid JSON", { status: 500 });
+        console.error("All repair attempts failed. Full JSON content:", jsonString);
+        return new NextResponse(
+          `Failed to parse AI response as JSON. The AI generated invalid JSON that could not be repaired. Please try again. Error: ${(e2 as Error).message}`,
+          { status: 500 }
+        );
       }
     }
 
     if (!Array.isArray(questions)) {
       return new NextResponse("AI response format invalid", { status: 500 });
     }
+
+    // Validate and fix questions to ensure exactly one correct answer per question
+    questions = questions.map((q: any, idx: number) => {
+      if (!q.options || !Array.isArray(q.options)) {
+        console.warn(`Question ${idx + 1} has invalid options array`);
+        return q;
+      }
+
+      const correctCount = q.options.filter((opt: any) => opt.isCorrect === true).length;
+
+      if (correctCount !== 1) {
+        console.warn(`Question ${idx + 1} has ${correctCount} correct answers. Fixing to have exactly 1.`);
+
+        // Fix: Set the first option as correct, all others as false
+        q.options = q.options.map((opt: any, optIdx: number) => ({
+          ...opt,
+          isCorrect: optIdx === 0
+        }));
+      }
+
+      return q;
+    });
+
 
     // 4. Save to Database
     // We need to determine the starting order index
