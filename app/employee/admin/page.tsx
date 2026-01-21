@@ -22,31 +22,31 @@ export default async function ContractAdminPage() {
     where: { adminId: session.user.id },
     include: {
       company: true,
-      courses: true,
+      courses: {
+        include: {
+          finalEvaluation: { select: { passingScore: true } },
+          modules: {
+            include: { lessons: { select: { id: true } } }
+          }
+        }
+      },
       users: {
         include: {
           enrollments: {
             include: {
+              lessonProgress: true,
+              evaluationAttempts: { select: { score: true, passed: true } },
               course: {
                 include: {
-                  finalEvaluation: true,
+                  finalEvaluation: { select: { passingScore: true } },
                   modules: {
-                    include: {
-                      lessons: true
-                    }
+                    include: { lessons: { select: { id: true } } }
                   }
                 }
-              },
-              moduleProgress: true,
-              lessonProgress: true,
-              quizAttempts: true,
-              evaluationAttempts: true
+              }
             }
           }
         }
-      },
-      _count: {
-        select: { users: true, preRegisteredUsers: true }
       }
     },
     orderBy: { createdAt: 'desc' }
@@ -54,204 +54,195 @@ export default async function ContractAdminPage() {
 
   return (
     <div className="space-y-8 p-6">
-      <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">
-          Panel de Contratos
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Gestiona el progreso y rendimiento de tus contratos activos.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-black bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent tracking-tight">
+            Panel de Gestión Corporativa
+          </h1>
+          <p className="text-muted-foreground mt-2 font-medium">
+            Supervisión de contratos, progreso y certificaciones.
+          </p>
+        </div>
       </div>
 
       {managedContracts.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-20 text-center">
+        <Card className="border-dashed rounded-[2rem] py-20">
+          <CardContent className="text-center">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-medium">No hay contratos activos</h3>
-            <p className="text-muted-foreground mt-2">No tienes contratos asignados actualmente.</p>
+            <h3 className="text-xl font-black text-slate-800">No hay contratos activos</h3>
+            <p className="text-muted-foreground mt-2 font-medium">No tienes contratos asignados actualmente bajo tu gestión.</p>
           </CardContent>
         </Card>
       ) : (
         managedContracts.map((contract) => {
           // Calculate contract stats
-          const totalUsers = contract.users.length;
-          const relevantEnrollments = contract.users.flatMap(u =>
-            u.enrollments.filter(e => contract.courses.some(c => c.id === e.courseId))
+          const relevantUsers = contract.users;
+          const totalEnrollmentsAcrossUsers = relevantUsers.reduce((acc, u) =>
+            acc + u.enrollments.filter(e => contract.courses.some(c => c.id === e.courseId)).length, 0
           );
-          const totalEnrollments = relevantEnrollments.length;
 
-          // Certification Rate (STRICT Score Check)
-          const certifiedEnrollments = relevantEnrollments.filter(e => {
-            const passingScore = e.course.finalEvaluation?.passingScore ?? 70;
-            return e.evaluationAttempts && e.evaluationAttempts.some(att => att.score >= passingScore);
-          }).length;
+          // Average Progress (Lesson based)
+          let totalLessonsSeen = 0;
+          let totalProgressSum = 0;
+          let enrollmentCountForProgress = 0;
 
-          const certificationRate = totalEnrollments > 0 ? Math.round((certifiedEnrollments / totalEnrollments) * 100) : 0;
+          relevantUsers.forEach(u => {
+            const contractEnrollments = u.enrollments.filter(e => contract.courses.some(c => c.id === e.courseId));
+            contractEnrollments.forEach(e => {
+              const allLessons = e.course.modules.flatMap(m => m.lessons);
+              if (allLessons.length > 0) {
+                const completed = e.lessonProgress.filter(lp => lp.completed).length;
+                totalProgressSum += (completed / allLessons.length) * 100;
+                enrollmentCountForProgress++;
+              }
+            });
+          });
 
-          // Average Time
-          const totalTime = relevantEnrollments.reduce((acc, curr) => acc + curr.totalTimeSpent, 0);
-          const avgTime = totalEnrollments > 0 ? Math.round(totalTime / totalEnrollments) : 0;
+          const avgProgress = enrollmentCountForProgress > 0 ? Math.round(totalProgressSum / enrollmentCountForProgress) : 0;
 
-          // Average Progress (Granular)
-          const totalProgressSum = relevantEnrollments.reduce((acc, enrollment) => {
-            // We can approximate total lessons from modules if fetched, or assuming we have them. 
-            // Note: In headers we didn't fetch modules deep lessons count fully... Wait, we need course.modules.lessons.
-            // We fetched `course: true`. But `course` type might not include modules/lessons by default unless included.
-            // Let's rely on `moduleProgress` count vs `course.modules` count if simpler, or assume we fetch deep enough.
-            // Actually, `course: true` usually just fetches scalars. We need `include: { course: { include: { modules: { include: { lessons: true } } } } }` to be precise.
-            // To avoid massive deep fetch performance hit, let's stick to module-based or try to refine query.
-            // USER ASKED FOR "progreso promedio de las lecciones".
-            // Let's assume we update the fetch above to include course structure deeply? 
-            // Or safer: Use module progress as proxy if deep fetch is too heavy? 
-            // No, user wants accuracy. I'll update the fetch to include basic structure.
-            return acc; // logic below will fix this
-          }, 0);
-
-          // RE-CALCULATING WITH BETTER DATA DOWNSTREAM
-          // To calculate granular progress properly for "Avance Promedio", we need the lesson count.
-          // Let's adjust the map calculation to iterate and sum properly if we have the data.
-          // If we don't have deep course data, we might need to rely on module completion or simpler metric.
-          // BUT wait, I can just update the include above!
-
-          let progressSum = 0;
-          relevantEnrollments.forEach(e => {
-            // @ts-ignore - assuming we updated the include query
-            const allLessons = e.course.modules?.flatMap(m => m.lessons) || [];
-            const totalLessons = allLessons.length;
-            if (totalLessons > 0) {
-              const completedLessons = e.lessonProgress?.filter(lp => lp.completed).length || 0;
-              progressSum += (completedLessons / totalLessons) * 100;
+          // Certification Rate
+          let certifiedCount = 0;
+          relevantUsers.forEach(u => {
+            const contractEnrollments = u.enrollments.filter(e => contract.courses.some(c => c.id === e.courseId));
+            if (contractEnrollments.some(e => {
+              const passingScore = e.course.finalEvaluation?.passingScore ?? 70;
+              return e.evaluationAttempts.some(att => att.score >= passingScore);
+            })) {
+              certifiedCount++;
             }
           });
-          const avgProgress = totalEnrollments > 0 ? Math.round(progressSum / totalEnrollments) : 0;
 
+          const certificationRate = relevantUsers.length > 0 ? Math.round((certifiedCount / relevantUsers.length) * 100) : 0;
+
+          const stats = [
+            { title: "Usuarios", value: relevantUsers.length, icon: Users, color: "bg-blue-500", desc: `de ${contract.maxUsers || "∞"} cupos` },
+            { title: "Cursos", value: contract.courses.length, icon: BookOpen, color: "bg-violet-500", desc: "en este contrato" },
+            { title: "Progreso", value: `${avgProgress}%`, icon: TrendingUp, color: "bg-indigo-500", desc: "promedio de lecciones" },
+            { title: "Certificación", value: `${certificationRate}%`, icon: CheckCircle, color: "bg-green-500", desc: `${certifiedCount} certificados` },
+          ];
 
           return (
-            <div key={contract.id} className="space-y-6">
-              {/* Contract Header & Stats */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <Card className="col-span-full bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-none shadow-sm">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-2xl text-blue-900 dark:text-blue-100">{contract.company.name}</CardTitle>
-                        <CardDescription>
-                          Contrato del {format(contract.startDate, "dd/MM/yyyy")} al {format(contract.endDate, "dd/MM/yyyy")}
-                        </CardDescription>
-                      </div>
-                      <Badge variant={contract.status === 'ACTIVE' ? 'default' : 'destructive'} className="text-sm px-3 py-1">
-                        {contract.status === 'ACTIVE' ? 'Activo' : contract.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Usuarios</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{totalUsers} <span className="text-muted-foreground text-sm font-normal">/ {contract.maxUsers || "∞"}</span></div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cursos Activos</CardTitle>
-                    <BookOpen className="h-4 w-4 text-blue-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{relevantEnrollments.length}</div>
-                    <p className="text-xs text-muted-foreground">Inscripciones totales</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Avance Promedio</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-indigo-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{avgProgress}%</div>
-                    <p className="text-xs text-muted-foreground">Progreso de contenido</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tasa de Certificación</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{certificationRate}%</div>
-                    <p className="text-xs text-muted-foreground">{certifiedEnrollments} usuarios certificados</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tiempo Promedio</CardTitle>
-                    <Clock className="h-4 w-4 text-orange-500" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatTime(avgTime)}</div>
-                    <p className="text-xs text-muted-foreground">Por curso completado</p>
-                  </CardContent>
-                </Card>
+            <div key={contract.id} className="space-y-8 pb-12 border-b border-slate-100 last:border-0">
+              <div className="flex justify-between items-end px-4">
+                <div className="space-y-1">
+                  <Badge className="bg-blue-50 text-blue-600 border-blue-100 font-bold uppercase tracking-widest text-[10px] py-1 px-3">
+                    Contrato Activo
+                  </Badge>
+                  <h2 className="text-2xl font-black text-slate-800 tracking-tight">{contract.company.name}</h2>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-tighter">
+                    {format(contract.startDate, "dd MMM yyyy")} — {format(contract.endDate, "dd MMM yyyy")}
+                  </p>
+                </div>
               </div>
 
-              {/* Users Table */}
-              <Card className="overflow-hidden shadow-md border-none">
-                <CardHeader>
-                  <CardTitle>Detalle de Usuarios</CardTitle>
+              <div className="grid gap-6 md:grid-cols-4">
+                {stats.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card key={stat.title} className="overflow-hidden border-none shadow-xl shadow-slate-200/40 relative group rounded-[2rem]">
+                      <div className={`absolute inset-0 opacity-10 ${stat.color} group-hover:opacity-20 transition-opacity`} />
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10">
+                        <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          {stat.title}
+                        </CardTitle>
+                        <div className={`p-2 rounded-xl ${stat.color} bg-opacity-20`}>
+                          <Icon className={`h-4 w-4 ${stat.color.replace('bg-', 'text-')}`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="z-10">
+                        <div className="text-3xl font-black">{stat.value}</div>
+                        <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-tighter">
+                          {stat.desc}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <Card className="border-none shadow-2xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-8">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-xl font-black text-slate-800">Detalle de Colaboradores</CardTitle>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead>Usuario</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Cursos Asignados</TableHead>
-                        <TableHead>Estado General</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                    <TableHeader className="bg-slate-50/30">
+                      <TableRow className="hover:bg-transparent border-slate-100">
+                        <TableHead className="py-5 pl-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cursos</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso Promedio</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Certificación</TableHead>
+                        <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {contract.users.map((user) => {
                         const userEnrollments = user.enrollments.filter(e => contract.courses.some(c => c.id === e.courseId));
-                        const coursesCompleted = userEnrollments.filter(e => e.status === 'COMPLETED').length;
+
+                        let userProgressSum = 0;
+                        userEnrollments.forEach(e => {
+                          const lessons = e.course.modules.flatMap(m => m.lessons);
+                          if (lessons.length > 0) {
+                            userProgressSum += (e.lessonProgress.filter(lp => lp.completed).length / lessons.length) * 100;
+                          }
+                        });
+                        const avgUserProgress = userEnrollments.length > 0 ? Math.round(userProgressSum / userEnrollments.length) : 0;
+
+                        const isUserCertified = userEnrollments.some(e => {
+                          const passingScore = e.course.finalEvaluation?.passingScore ?? 70;
+                          return e.evaluationAttempts.some(att => att.score >= passingScore);
+                        });
 
                         return (
-                          <TableRow key={user.id} className="hover:bg-muted/10 transition-colors">
-                            <TableCell className="font-medium">
+                          <TableRow key={user.id} className="hover:bg-slate-50/50 border-slate-100 transition-colors group">
+                            <TableCell className="py-5 pl-8">
                               <div className="flex flex-col">
-                                <span>{user.name}</span>
-                                <span className="text-xs text-muted-foreground md:hidden">{user.email}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell">{user.email}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                {userEnrollments.slice(0, 2).map(e => (
-                                  <span key={e.courseId} className="text-xs truncate max-w-[150px]">{e.course.title}</span>
-                                ))}
-                                {userEnrollments.length > 2 && <span className="text-xs text-muted-foreground">+{userEnrollments.length - 2} más</span>}
-                                {userEnrollments.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
+                                <span className="font-bold text-slate-700">{user.name || 'Sin nombre'}</span>
+                                <span className="text-xs text-slate-400 font-medium">{user.email}</span>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={coursesCompleted > 0 ? 'default' : 'secondary'}>
-                                  {coursesCompleted}/{userEnrollments.length} Completados
+                              <Badge variant="outline" className="rounded-lg bg-slate-100/50 border-slate-200 font-bold text-slate-600">
+                                {userEnrollments.length} {userEnrollments.length === 1 ? 'Curso' : 'Cursos'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-24">
+                                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full transition-all duration-500 rounded-full ${avgUserProgress === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                                      style={{ width: `${avgUserProgress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className="text-xs font-black text-slate-600">{avgUserProgress}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {isUserCertified ? (
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 shadow-none font-black text-[9px] uppercase tracking-tighter px-3">
+                                  <CheckCircle className="w-3 h-3 mr-1" /> Certificado
                                 </Badge>
-                              </div>
+                              ) : (
+                                <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-200 shadow-none font-bold text-[9px] uppercase tracking-tighter px-3">
+                                  Pendiente
+                                </Badge>
+                              )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right pr-8">
                               <Link href={`/employee/admin/users/${user.id}`}>
-                                <Button variant="ghost" size="sm" className="hover:text-blue-600">Ver Perfil</Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-xl hover:bg-white hover:text-blue-600 hover:shadow-lg hover:shadow-blue-500/10 transition-all"
+                                >
+                                  <TrendingUp className="h-4 w-4" />
+                                </Button>
                               </Link>
                             </TableCell>
                           </TableRow>
@@ -259,8 +250,8 @@ export default async function ContractAdminPage() {
                       })}
                       {contract.users.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                            No hay usuarios registrados en este contrato aún.
+                          <TableCell colSpan={5} className="text-center py-16 text-slate-400 font-medium italic">
+                            No hay usuarios asignados a este contrato.
                           </TableCell>
                         </TableRow>
                       )}

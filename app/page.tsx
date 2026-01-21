@@ -31,9 +31,9 @@ export default async function Home() {
       case "ADMIN":
         redirect("/admin");
       case "CLIENT":
-        redirect("/client");
-      case "EMPLOYEE":
       case "CONTRACT_ADMIN":
+        redirect("/employee/admin");
+      case "EMPLOYEE":
         redirect("/employee");
       default:
         break;

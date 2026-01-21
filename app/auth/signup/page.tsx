@@ -42,7 +42,7 @@ export default function SignUpPage() {
           setError("Cuenta creada pero error al iniciar sesión automática");
           router.push("/auth/signin");
         } else {
-          router.push("/client");
+          router.push("/employee/admin");
         }
       } else {
         const data = await res.json();
