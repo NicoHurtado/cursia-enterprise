@@ -54,23 +54,28 @@ export default async function ClientDashboard() {
           role: "EMPLOYEE",
         },
         include: {
-          // Include enough for the user table logic
           _count: {
             select: { enrollments: true }
           },
           enrollments: {
             where: { companyId: { in: companyIds } },
-            select: {
-              status: true,
-              totalTimeSpent: true,
+            include: {
+              lessonProgress: true,
               evaluationAttempts: {
-                where: { passed: true },
-                select: { id: true }
+                select: { score: true, passed: true }
+              },
+              course: {
+                include: {
+                  finalEvaluation: { select: { passingScore: true } },
+                  modules: {
+                    include: { lessons: { select: { id: true } } }
+                  }
+                }
               }
             }
           }
         },
-        take: 10, // Limit to 10 for the dashboard view
+        take: 10,
         orderBy: { createdAt: 'desc' }
       }),
       // Fetch data for Average Progress calculation
@@ -93,7 +98,7 @@ export default async function ClientDashboard() {
 
   // Calculate Certification Rate manually to be strict
   const strictCertifiedCount = allEnrollmentsWithProgress.filter(e => {
-    const passingScore = e.course.finalEvaluation?.passingScore ?? 70; // Default to 70 if missing
+    const passingScore = e.course.finalEvaluation?.passingScore ?? 70;
     return e.evaluationAttempts.some(att => att.score >= passingScore);
   }).length;
 
@@ -156,8 +161,8 @@ export default async function ClientDashboard() {
     <div className="space-y-8 p-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">Dashboard Corporativo</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-3xl font-black bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent tracking-tight">Dashboard Corporativo</h1>
+          <p className="text-muted-foreground mt-2 font-medium">
             Resumen de actividad y progreso de {user.companies[0].name}
           </p>
         </div>
@@ -167,19 +172,19 @@ export default async function ClientDashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.title} className="overflow-hidden border-none shadow-lg relative group">
+            <Card key={stat.title} className="overflow-hidden border-none shadow-xl shadow-slate-200/50 relative group rounded-[2rem]">
               <div className={`absolute inset-0 opacity-10 ${stat.color} group-hover:opacity-20 transition-opacity`} />
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 z-10">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <div className={`p-2 rounded-full ${stat.color} bg-opacity-20`}>
+                <div className={`p-2 rounded-xl ${stat.color} bg-opacity-20`}>
                   <Icon className={`h-4 w-4 ${stat.color.replace('bg-', 'text-')}`} />
                 </div>
               </CardHeader>
               <CardContent className="z-10">
-                <div className="text-3xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <div className="text-3xl font-black">{stat.value}</div>
+                <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-tighter">
                   {stat.description}
                 </p>
               </CardContent>
@@ -188,43 +193,90 @@ export default async function ClientDashboard() {
         })}
       </div>
 
-      <Card className="border-none shadow-md">
-        <CardHeader>
-          <CardTitle>Empleados Recientes</CardTitle>
+      <Card className="border-none shadow-2xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-8">
+          <CardTitle className="text-xl font-black text-slate-800">Estado de la Plantilla</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Cursos</TableHead>
-                <TableHead>Progreso General</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+            <TableHeader className="bg-slate-50/30">
+              <TableRow className="hover:bg-transparent border-slate-100">
+                <TableHead className="py-5 pl-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Nombre</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cursos</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso Promedio</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Certificación</TableHead>
+                <TableHead className="text-right pr-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {employees.map((employee) => {
-                const certifiedCount = employee.enrollments.filter(e => e.evaluationAttempts.length > 0).length;
+                // Calculate average progress across all enrollments
+                let totalProgressSum = 0;
                 const totalEnrollments = employee.enrollments.length;
-                const completionPercent = totalEnrollments > 0 ? Math.round((certifiedCount / totalEnrollments) * 100) : 0;
+
+                employee.enrollments.forEach(e => {
+                  const allLessons = e.course.modules.flatMap(m => m.lessons);
+                  const totalLessons = allLessons.length;
+                  if (totalLessons > 0) {
+                    const completed = e.lessonProgress.filter(lp => lp.completed).length;
+                    totalProgressSum += (completed / totalLessons) * 100;
+                  }
+                });
+
+                const avgEmployeeProgress = totalEnrollments > 0 ? Math.round(totalProgressSum / totalEnrollments) : 0;
+
+                // Determine if they have AT LEAST one certificate
+                const isCertified = employee.enrollments.some(e => {
+                  const passingScore = e.course.finalEvaluation?.passingScore ?? 70;
+                  return e.evaluationAttempts.some(att => att.score >= passingScore);
+                });
 
                 return (
-                  <TableRow key={employee.id}>
-                    <TableCell className="font-medium">{employee.name || 'Sin nombre'}</TableCell>
-                    <TableCell>{employee.email}</TableCell>
-                    <TableCell>{employee._count.enrollments}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Badge variant={completionPercent === 100 ? "default" : "secondary"} className={completionPercent === 100 ? "bg-green-500 hover:bg-green-600" : ""}>
-                          {completionPercent}% Finalizado
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{certifiedCount} de {totalEnrollments} certificados</span>
+                  <TableRow key={employee.id} className="hover:bg-slate-50/50 border-slate-100 transition-colors group">
+                    <TableCell className="py-5 pl-8">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-700">{employee.name || 'Sin nombre'}</span>
+                        <span className="text-xs text-slate-400 font-medium">{employee.email}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-lg bg-slate-100/50 border-slate-200 font-bold text-slate-600">
+                        {totalEnrollments} {totalEnrollments === 1 ? 'Curso' : 'Cursos'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24">
+                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-500 rounded-full ${avgEmployeeProgress === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                              style={{ width: `${avgEmployeeProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-xs font-black text-slate-600">{avgEmployeeProgress}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isCertified ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 shadow-none font-black text-[9px] uppercase tracking-tighter px-3">
+                          <CheckCircle className="w-3 h-3 mr-1" /> Certificado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-200 shadow-none font-bold text-[9px] uppercase tracking-tighter px-3">
+                          Pendiente
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right pr-8">
                       <Link href={`/client/users/${employee.id}`}>
-                        <Button variant="ghost" size="sm">Ver Perfil</Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-xl hover:bg-white hover:text-[#0066FF] hover:shadow-lg hover:shadow-blue-500/10 transition-all"
+                        >
+                          <TrendingUp className="h-4 w-4" />
+                        </Button>
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -232,8 +284,8 @@ export default async function ClientDashboard() {
               })}
               {employees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                    No se encontraron empleados.
+                  <TableCell colSpan={5} className="text-center py-20 text-slate-400 font-medium">
+                    No se encontraron empleados registrados.
                   </TableCell>
                 </TableRow>
               )}
