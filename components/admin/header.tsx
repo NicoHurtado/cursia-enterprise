@@ -16,7 +16,7 @@ export function AdminHeader({ userName }: { userName?: string }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+          onClick={() => signOut({ callbackUrl: `${window.location.origin}/auth/signin` })}
         >
           <LogOut className="w-4 h-4 mr-2" />
           Salir
