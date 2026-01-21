@@ -52,6 +52,12 @@ export default function SignInPage() {
           <CardDescription className="text-center">
             Inicia sesión en tu cuenta
           </CardDescription>
+
+          <div className="mt-4 p-4 rounded-2xl bg-blue-50 border border-blue-100 text-[13px] text-slate-600 leading-snug">
+            <p>
+              <span className="font-bold text-[#0066FF]">Aviso:</span> Si tu empresa aún no ha realizado la reunión estratégica inicial, no verás cursos disponibles. Si ya son clientes, usa tu <strong>correo corporativo</strong> para sincronizar tu contenido automáticamente.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

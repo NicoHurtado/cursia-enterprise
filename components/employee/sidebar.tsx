@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen, Home, Award, LayoutDashboard } from "lucide-react";
+import { BookOpen, Home, Award, LayoutDashboard, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/employee", label: "Mis Cursos", icon: Home },
   { href: "/employee/certificates", label: "Certificados", icon: Award },
+  { href: "/employee/settings", label: "Configuración", icon: Settings },
 ];
 
 interface EmployeeSidebarProps {

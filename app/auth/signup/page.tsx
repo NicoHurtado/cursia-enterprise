@@ -66,6 +66,12 @@ export default function SignUpPage() {
           <CardDescription className="text-center">
             Crea tu cuenta para acceder a tus cursos
           </CardDescription>
+
+          <div className="mt-4 p-4 rounded-2xl bg-blue-50 border border-blue-100 text-[13px] text-slate-600 leading-snug">
+            <p>
+              <span className="font-bold text-[#0066FF]">Importante:</span> Solo verás cursos si tu organización ya tuvo la sesión estratégica inicial. Asegúrate de registrarte con tu <strong>correo corporativo</strong> para habilitar tu capacitación.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

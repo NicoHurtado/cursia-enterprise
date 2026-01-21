@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/companies", label: "Empresas", icon: Building2 },
   { href: "/admin/courses", label: "Cursos", icon: BookOpen },
   { href: "/admin/users", label: "Usuarios", icon: Users },
+  { href: "/admin/settings", label: "Configuración", icon: Settings },
 ];
 
 export function AdminSidebar() {
