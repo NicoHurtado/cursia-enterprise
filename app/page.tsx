@@ -25,20 +25,11 @@ import {
 export default async function Home() {
   const session = await auth();
 
-  // If session exists, redirect based on role
-  if (session) {
-    switch (session.user.role) {
-      case "ADMIN":
-        redirect("/admin");
-      case "CLIENT":
-      case "CONTRACT_ADMIN":
-        redirect("/employee/admin");
-      case "EMPLOYEE":
-        redirect("/employee");
-      default:
-        break;
-    }
-  }
+  const dashboardLink = session ? (
+    session.user.role === "ADMIN" ? "/admin" :
+      (session.user.role === "CLIENT" || session.user.role === "CONTRACT_ADMIN") ? "/employee/admin" :
+        "/employee"
+  ) : "/auth/signin";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100 selection:text-blue-900">
@@ -70,10 +61,10 @@ export default async function Home() {
                 <Instagram className="w-5 h-5" />
               </a>
               <Link
-                href="/auth/signin"
+                href={dashboardLink}
                 className="hidden sm:flex items-center px-4 py-2 text-slate-600 hover:text-slate-900 transition-all font-bold text-sm gap-2"
               >
-                <LogIn className="w-4 h-4" /> Acceder
+                <LogIn className="w-4 h-4" /> {session ? "Mi Panel" : "Acceder"}
               </Link>
               <a
                 href="#contacto"
@@ -113,10 +104,10 @@ export default async function Home() {
                 Agendar Reunión Inicial <ArrowRight className="w-6 h-6" />
               </a>
               <Link
-                href="/auth/signin"
+                href={dashboardLink}
                 className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-slate-100 text-slate-700 font-bold text-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3"
               >
-                Acceso a la Plataforma
+                {session ? "Ir a mi Panel" : "Acceso a la Plataforma"}
               </Link>
             </div>
 

@@ -14,7 +14,7 @@ import { formatTime } from "@/lib/utils";
 export default async function ContractAdminPage() {
   const session = await auth();
 
-  if (!session || session.user.role !== "CONTRACT_ADMIN") {
+  if (!session || (session.user.role !== "CONTRACT_ADMIN" && session.user.role !== "CLIENT")) {
     redirect("/");
   }
 

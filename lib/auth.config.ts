@@ -31,12 +31,11 @@ export const authConfig = {
 
       const isApiRoute = nextUrl.pathname.startsWith('/api');
       const isAdminRoute = nextUrl.pathname.startsWith('/admin');
-      const isClientRoute = nextUrl.pathname.startsWith('/client');
       const isEmployeeRoute = nextUrl.pathname.startsWith('/employee');
       const isAuthRoute = nextUrl.pathname.startsWith('/auth');
 
       // 1. If not logged in and trying to access any dashboard, redirect to login
-      if ((isAdminRoute || isClientRoute || isEmployeeRoute) && !isLoggedIn) {
+      if ((isAdminRoute || isEmployeeRoute) && !isLoggedIn) {
         return false;
       }
 
@@ -50,10 +49,7 @@ export const authConfig = {
         if (isAdminRoute && userRole !== 'ADMIN') {
           return Response.redirect(new URL('/', nextUrl));
         }
-        if (isClientRoute && userRole !== 'CLIENT') {
-          return Response.redirect(new URL('/', nextUrl));
-        }
-        if (isEmployeeRoute && userRole !== 'EMPLOYEE' && userRole !== 'CONTRACT_ADMIN') {
+        if (isEmployeeRoute && userRole !== 'EMPLOYEE' && userRole !== 'CONTRACT_ADMIN' && userRole !== 'CLIENT') {
           return Response.redirect(new URL('/', nextUrl));
         }
       }

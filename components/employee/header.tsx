@@ -36,7 +36,7 @@ export function EmployeeHeader({ userName }: { userName?: string }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => signOut({ callbackUrl: `${window.location.origin}/auth/signin` })}
+          onClick={() => signOut({ callbackUrl: "/" })}
         >
           <LogOut className="w-4 h-4 mr-2" />
           Salir
