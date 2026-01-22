@@ -161,7 +161,7 @@ export function EvaluationAnalysis({
                 <div className="space-y-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Respuesta del Estudiante</span>
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 leading-relaxed italic">
-                    "{studentAnswer}"
+                    &quot;{studentAnswer}&quot;
                   </div>
                 </div>
                 <div className="space-y-2">
