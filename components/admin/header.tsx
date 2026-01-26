@@ -16,7 +16,10 @@ export function AdminHeader({ userName }: { userName?: string }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => signOut({ callbackUrl: window.location.origin })}
+          onClick={async () => {
+            await signOut({ redirect: false });
+            window.location.href = "/";
+          }}
         >
           <LogOut className="w-4 h-4 mr-2" />
           Salir

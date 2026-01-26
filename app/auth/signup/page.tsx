@@ -42,7 +42,16 @@ export default function SignUpPage() {
           setError("Cuenta creada pero error al iniciar sesión automática");
           router.push("/auth/signin");
         } else {
-          router.push("/employee/admin");
+          // Fetch session to determine role-based redirect
+          const response = await fetch("/api/auth/session");
+          const session = await response.json();
+
+          let dashboardUrl = '/';
+          if (session?.user?.role === 'ADMIN') dashboardUrl = '/admin';
+          else if (session?.user?.role === 'CLIENT' || session?.user?.role === 'CONTRACT_ADMIN') dashboardUrl = '/employee/admin';
+          else if (session?.user?.role === 'EMPLOYEE') dashboardUrl = '/employee';
+
+          router.push(dashboardUrl);
         }
       } else {
         const data = await res.json();

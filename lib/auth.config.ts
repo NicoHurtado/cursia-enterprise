@@ -39,9 +39,14 @@ export const authConfig = {
         return false;
       }
 
-      // 2. If logged in and trying to access auth pages (signin/signup), redirect to home
+      // 2. If logged in and trying to access auth pages (signin/signup), redirect to their respective dashboard
       if (isLoggedIn && isAuthRoute) {
-        return Response.redirect(new URL('/', nextUrl));
+        let dashboardUrl = '/';
+        if (userRole === 'ADMIN') dashboardUrl = '/admin';
+        else if (userRole === 'CLIENT' || userRole === 'CONTRACT_ADMIN') dashboardUrl = '/employee/admin';
+        else if (userRole === 'EMPLOYEE') dashboardUrl = '/employee';
+
+        return Response.redirect(new URL(dashboardUrl, nextUrl));
       }
 
       // 3. Strict Role-Based Access Control
