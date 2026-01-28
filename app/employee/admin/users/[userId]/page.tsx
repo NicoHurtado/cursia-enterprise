@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EvaluationAnalysis } from "@/components/admin/evaluation-analysis";
+import { ModuleProgressCard } from "@/components/admin/module-progress-card";
 
 export default async function ContractAdminUserPage({
   params,
@@ -158,7 +159,7 @@ export default async function ContractAdminUserPage({
                       </div>
                       <div className="p-6 rounded-[2rem] bg-indigo-50/50 border border-indigo-100/50 space-y-4">
                         <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                          <GraduationCap className="w-3 h-3" /> Mejor Calificación
+                          <GraduationCap className="w-3 h-3" /> Mejor Calificación de la Evaluación Final
                         </div>
                         <div className="text-2xl font-black text-indigo-600">{bestAttempt ? `${bestAttempt.score}/100` : '--/--'}</div>
                       </div>
@@ -167,94 +168,15 @@ export default async function ContractAdminUserPage({
                     <div>
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Desglose por Módulo</h3>
                       <div className="space-y-4">
-                        {enrollment.course.modules.map(module => {
-                          const modLessons = module.lessons;
-                          const completed = modLessons.filter(l => enrollment.lessonProgress.some(lp => lp.lessonId === l.id && lp.completed)).length;
-                          const modPercent = modLessons.length > 0 ? Math.round((completed / modLessons.length) * 100) : 0;
-
-                          // Evaluation/Quiz Stats
-                          const moduleQuizzes = modLessons.flatMap(l => l.quizzes);
-                          const totalQuizQuestions = moduleQuizzes.length;
-
-                          // Count unique quizzes completed (attempted)
-                          const completedQuizzes = new Set(
-                            enrollment.quizAttempts
-                              .filter(qa => moduleQuizzes.some(mq => mq.id === qa.quizId))
-                              .map(qa => qa.quizId)
-                          ).size;
-
-                          const quizPercent = totalQuizQuestions > 0
-                            ? Math.round((completedQuizzes / totalQuizQuestions) * 100)
-                            : 0;
-
-                          const lessonsWithQuizzes = modLessons.filter(l => l.quizzes.length > 0);
-
-                          return (
-                            <div key={module.id} className="p-6 rounded-[1.5rem] border border-slate-100 hover:bg-slate-50 transition-colors">
-                              <div className="grid md:grid-cols-2 gap-8">
-                                {/* Lesson Progress (Left) */}
-                                <div className="space-y-3">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-bold text-slate-700">{module.title}</span>
-                                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{modPercent}%</span>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                      <span>Progreso de Lecciones</span>
-                                      <span>{completed}/{modLessons.length}</span>
-                                    </div>
-                                    <Progress value={modPercent} className="h-2 bg-slate-100" indicatorClassName="bg-blue-500" />
-                                  </div>
-                                </div>
-
-                                {/* Evaluation Progress (Right) */}
-                                <div className="space-y-3 pl-0 md:pl-8 md:border-l border-slate-100">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Evaluación del Módulo</span>
-                                    <span className={`text-xs font-black px-2 py-1 rounded-md ${quizPercent === 100 ? 'text-emerald-600 bg-emerald-50' : 'text-slate-600 bg-slate-100'}`}>
-                                      {quizPercent}%
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-1">
-                                    <Progress value={quizPercent} className="h-2 bg-slate-100" indicatorClassName={quizPercent === 100 ? "bg-emerald-500" : "bg-slate-400"} />
-                                  </div>
-
-                                  {/* Quiz Breakdown */}
-                                  {lessonsWithQuizzes.length > 0 && (
-                                    <div className="pt-2 mt-2">
-                                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Preguntas por Lección</div>
-                                      <div className="flex flex-wrap gap-2">
-                                        {lessonsWithQuizzes.map(lesson => {
-                                          const lessonQuizCount = lesson.quizzes.length;
-                                          const lessonCompletedCount = new Set(
-                                            enrollment.quizAttempts
-                                              .filter(qa => lesson.quizzes.some(q => q.id === qa.quizId))
-                                              .map(qa => qa.quizId)
-                                          ).size;
-
-                                          const isComplete = lessonCompletedCount === lessonQuizCount && lessonQuizCount > 0;
-
-                                          return (
-                                            <div key={lesson.id} className={`text-[10px] px-2 py-1 rounded-lg border flex items-center gap-2 ${isComplete ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-white border-slate-100 text-slate-500'}`}>
-                                              <span className="font-bold max-w-[100px] truncate">{lesson.title}</span>
-                                              <span className={`font-black ${isComplete ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                {lessonCompletedCount}/{lessonQuizCount}
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {lessonsWithQuizzes.length === 0 && (
-                                    <div className="text-[10px] italic text-slate-300">Sin evaluaciones</div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        {enrollment.course.modules.map(module => (
+                          <ModuleProgressCard
+                            key={module.id}
+                            module={module as any}
+                            enrollmentId={enrollment.id}
+                            lessonProgress={enrollment.lessonProgress}
+                            quizAttempts={enrollment.quizAttempts}
+                          />
+                        ))}
                       </div>
                     </div>
                   </CardContent>
