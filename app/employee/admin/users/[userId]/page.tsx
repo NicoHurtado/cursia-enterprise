@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EvaluationAnalysis } from "@/components/admin/evaluation-analysis";
+import { ModuleProgressCard } from "@/components/admin/module-progress-card";
 
 export default async function ContractAdminUserPage({
   params,
@@ -158,51 +159,24 @@ export default async function ContractAdminUserPage({
                       </div>
                       <div className="p-6 rounded-[2rem] bg-indigo-50/50 border border-indigo-100/50 space-y-4">
                         <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                          <GraduationCap className="w-3 h-3" /> Mejor Calificación
+                          <GraduationCap className="w-3 h-3" /> Mejor Calificación de la Evaluación Final
                         </div>
                         <div className="text-2xl font-black text-indigo-600">{bestAttempt ? `${bestAttempt.score}/100` : '--/--'}</div>
                       </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-12">
-                      <div>
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Desglose por Módulo</h3>
-                        <div className="space-y-4">
-                          {enrollment.course.modules.map(module => {
-                            const modLessons = module.lessons;
-                            const completed = modLessons.filter(l => enrollment.lessonProgress.some(lp => lp.lessonId === l.id && lp.completed)).length;
-                            const modPercent = modLessons.length > 0 ? Math.round((completed / modLessons.length) * 100) : 0;
-                            return (
-                              <div key={module.id} className="p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-colors">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="text-sm font-bold text-slate-700">{module.title}</span>
-                                  <span className="text-xs font-black text-slate-400">{modPercent}%</span>
-                                </div>
-                                <Progress value={modPercent} className="h-1 bg-slate-100" />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Exámenes de Lección</h3>
-                        <div className="space-y-4">
-                          {enrollment.course.modules.flatMap(m => m.lessons).filter(l => l.quizzes.length > 0).map(lesson => {
-                            const attempts = enrollment.quizAttempts.filter(qa => lesson.quizzes.some(q => q.id === qa.quizId));
-                            const bestQuizScore = attempts.length > 0 ? Math.max(...attempts.map(a => a.score)) : 0;
-                            return (
-                              <div key={lesson.id} className="flex justify-between items-center p-4 border border-slate-100 rounded-2xl shadow-sm">
-                                <span className="text-sm font-bold text-slate-600">{lesson.title}</span>
-                                <Badge className={`rounded-lg font-black text-[10px] ${bestQuizScore >= 80 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                  {bestQuizScore}%
-                                </Badge>
-                              </div>
-                            );
-                          })}
-                          {enrollment.course.modules.flatMap(m => m.lessons).filter(l => l.quizzes.length > 0).length === 0 && (
-                            <div className="text-center py-8 text-slate-300 font-medium italic">Sin evaluaciones previas</div>
-                          )}
-                        </div>
+                    <div>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Desglose por Módulo</h3>
+                      <div className="space-y-4">
+                        {enrollment.course.modules.map(module => (
+                          <ModuleProgressCard
+                            key={module.id}
+                            module={module as any}
+                            enrollmentId={enrollment.id}
+                            lessonProgress={enrollment.lessonProgress}
+                            quizAttempts={enrollment.quizAttempts}
+                          />
+                        ))}
                       </div>
                     </div>
                   </CardContent>
