@@ -22,6 +22,9 @@ export function CompanyManager({ company }: CompanyManagerProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualAdding, setManualAdding] = useState(false);
+  const [manualResult, setManualResult] = useState<{ success?: boolean; error?: string } | null>(null);
   const [contractForm, setContractForm] = useState({
     startDate: "",
     endDate: "",
@@ -74,6 +77,36 @@ export function CompanyManager({ company }: CompanyManagerProps) {
       setUploadResult({ errors: ["Error al subir el archivo"] });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleManualAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualEmail.trim()) return;
+
+    setManualAdding(true);
+    setManualResult(null);
+
+    try {
+      const res = await fetch(`/api/admin/companies/${company.id}/users/manual`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: manualEmail.trim() }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setManualResult({ success: true });
+        setManualEmail("");
+        router.refresh();
+      } else {
+        setManualResult({ error: data.error || "Error al agregar usuario" });
+      }
+    } catch (error) {
+      console.error("Manual add error:", error);
+      setManualResult({ error: "Error al agregar usuario" });
+    } finally {
+      setManualAdding(false);
     }
   };
 
@@ -299,6 +332,57 @@ export function CompanyManager({ company }: CompanyManagerProps) {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Agregar Usuario Manual</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleManualAdd} className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="manual-email">Correo Electrónico</Label>
+                    <Input
+                      id="manual-email"
+                      type="email"
+                      placeholder="usuario@ejemplo.com"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      disabled={manualAdding}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button type="submit" disabled={manualAdding}>
+                      {manualAdding ? "Agregando..." : "Agregar Usuario"}
+                    </Button>
+                  </div>
+                </div>
+
+                {manualResult && (
+                  <div className={`p-3 rounded-lg ${manualResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <div className="flex items-center gap-2">
+                      {manualResult.success ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span className="text-sm text-green-600 font-medium">
+                            Usuario agregado exitosamente
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-600" />
+                          <span className="text-sm text-red-600 font-medium">
+                            {manualResult.error}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </form>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Carga Masiva de Usuarios</CardTitle>

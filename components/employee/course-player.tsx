@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   BookOpen,
   FileText,
   Video,
@@ -98,6 +106,8 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
   const [quizPassed, setQuizPassed] = useState<Record<string, boolean>>({});
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [failureScore, setFailureScore] = useState(0);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
@@ -123,6 +133,11 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
   const currentLesson = allLessons[currentLessonIndex];
   const hasQuizzes = currentLesson?.quizzes.length > 0;
   const currentLessonQuizPassed = currentLesson ? quizPassed[currentLesson.id] : false;
+
+  // Track all quizzes in the course for evaluation unlock
+  const allQuizzesInCourse = allLessons.filter(l => l.quizzes.length > 0);
+  const passedQuizCount = allQuizzesInCourse.filter(l => quizPassed[l.id]).length;
+  const allQuizzesPassed = passedQuizCount === allQuizzesInCourse.length && allQuizzesInCourse.length > 0;
 
   // Calculate progress based on completed lessons
   const progress = allLessons.length > 0
@@ -181,6 +196,8 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
         setFlashcardFlipped(false);
         setQuizAnswers({});
         setQuizSubmitted({});
+        // Scroll to top when moving to next lesson
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       } else if (course.finalEvaluation) {
         setViewMode("evaluation");
@@ -214,6 +231,8 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
       setQuizAnswers({});
       setQuizSubmitted({});
       setViewMode("lesson");
+      // Scroll to top when moving to previous lesson
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -379,6 +398,8 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                                     if (!isLocked) {
                                       setCurrentLessonIndex(globalIndex);
                                       setViewMode("lesson");
+                                      // Scroll to top when clicking on a lesson
+                                      window.scrollTo({ top: 0, behavior: "smooth" });
                                     }
                                   }}
                                   disabled={isLocked}
@@ -445,17 +466,34 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                     <div className="pt-4 mt-4 border-t border-slate-100">
                       <Button
                         variant={viewMode === "evaluation" ? "default" : "outline"}
+                        disabled={!allQuizzesPassed && allQuizzesInCourse.length > 0}
                         className={cn(
                           "w-full justify-start rounded-xl h-12 font-bold",
                           viewMode === "evaluation"
                             ? "bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200"
-                            : "border-2 border-slate-200 hover:border-indigo-200 hover:bg-indigo-50 text-slate-600"
+                            : allQuizzesPassed || allQuizzesInCourse.length === 0
+                              ? "border-2 border-slate-200 hover:border-indigo-200 hover:bg-indigo-50 text-slate-600"
+                              : "border-2 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
                         )}
-                        onClick={() => setViewMode("evaluation")}
+                        onClick={() => (allQuizzesPassed || allQuizzesInCourse.length === 0) && setViewMode("evaluation")}
                       >
-                        <Trophy className="w-5 h-5 mr-3 text-yellow-500" />
+                        {!allQuizzesPassed && allQuizzesInCourse.length > 0 ? (
+                          <Lock className="w-5 h-5 mr-3 text-slate-400" />
+                        ) : (
+                          <Trophy className="w-5 h-5 mr-3 text-yellow-500" />
+                        )}
                         Evaluación Final
+                        {!allQuizzesPassed && allQuizzesInCourse.length > 0 && (
+                          <Badge variant="secondary" className="ml-auto bg-orange-100 text-orange-700 text-xs">
+                            {passedQuizCount}/{allQuizzesInCourse.length}
+                          </Badge>
+                        )}
                       </Button>
+                      {!allQuizzesPassed && allQuizzesInCourse.length > 0 && (
+                        <p className="text-xs text-slate-500 mt-2 px-2">
+                          Aprueba todos los quizzes para desbloquear
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -497,6 +535,10 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                   if (passed) {
                     setQuizPassed((prev) => ({ ...prev, [currentLesson.id]: true }));
                     handleQuizPass();
+                  } else {
+                    // Failed quiz: show modal with score and message
+                    setFailureScore(score);
+                    setShowFailureModal(true);
                   }
                 }}
                 onRetry={() => {
@@ -652,6 +694,44 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
             className="md:w-[24vw] w-[90vw]"
           />
         )}
+
+        {/* Quiz Failure Modal */}
+        <Dialog open={showFailureModal} onOpenChange={setShowFailureModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-red-600 flex items-center gap-2">
+                <HelpCircle className="w-6 h-6" />
+                Quiz No Aprobado
+              </DialogTitle>
+              <DialogDescription className="text-base pt-4">
+                Has obtenido un puntaje de <span className="font-bold text-red-600 text-xl">{failureScore}%</span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-slate-700 font-medium">
+                  📚 Te recomendamos repasar el contenido de la lección antes de volver a intentar.
+                </p>
+              </div>
+              <div className="text-sm text-slate-600 space-y-2">
+                <p>✓ Revisa los puntos clave de la lección</p>
+                <p>✓ Toma notas si es necesario</p>
+                <p>✓ Cuando te sientas listo, intenta nuevamente</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  setShowFailureModal(false);
+                  setViewMode("lesson");
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+              >
+                Repasar Lección
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div >
   );
@@ -836,18 +916,18 @@ function QuizTestViewer({
       <div className="max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
         <Card className={cn(
           "border-none shadow-xl rounded-3xl overflow-hidden text-center",
-          passed ? "bg-gradient-to-b from-green-50 to-white" : "bg-gradient-to-b from-red-50 to-white"
+          isTotalPassed ? "bg-gradient-to-b from-green-50 to-white" : "bg-gradient-to-b from-red-50 to-white"
         )}>
           <CardContent className="pt-12 pb-12 px-8">
             <div className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg",
-              passed ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              isTotalPassed ? "bg-green-500 text-white" : "bg-red-500 text-white"
             )}>
-              {passed ? <Trophy className="w-12 h-12" /> : <Flame className="w-12 h-12" />}
+              {isTotalPassed ? <Trophy className="w-12 h-12" /> : <Flame className="w-12 h-12" />}
             </div>
 
             <h2 className="text-3xl font-black text-slate-800 mb-2">
-              {passed ? "¡Excelente Trabajo!" : "Sigue Intentando"}
+              {isTotalPassed ? "¡Excelente Trabajo!" : "Sigue Intentando"}
             </h2>
 
             <div className="text-6xl font-black mb-6 tracking-tighter" style={{ color: isTotalPassed ? '#22c55e' : '#ef4444' }}>
@@ -855,13 +935,13 @@ function QuizTestViewer({
             </div>
 
             <p className="text-slate-600 font-medium text-lg mb-8 max-w-md mx-auto">
-              {passed
+              {isTotalPassed
                 ? "Has demostrado un gran dominio del tema. ¡Estás listo para continuar!"
-                : `Necesitas un ${passingScore}% para aprobar. Repasa el material y vuelve a intentarlo.`}
+                : `Necesitas un ${passingScore}% para aprobar. Serás redirigido a la lección para repasar el contenido.`}
             </p>
 
             <div className="flex justify-center gap-4">
-              {!passed && (
+              {!isTotalPassed && (
                 <Button
                   onClick={onRetry}
                   size="lg"

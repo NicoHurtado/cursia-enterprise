@@ -116,7 +116,7 @@ export default function SignInPage() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                  onClick={() => signIn("credentials", { email: "admin@cursia.com", password: "password123", callbackUrl: "/" })}
+                  onClick={() => signIn("credentials", { email: "admin@cursia.com", password: "admin123", callbackUrl: "/" })}
                 >
                   Admin (Super Admin)
                 </Button>

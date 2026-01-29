@@ -128,6 +128,8 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
         setFlashcardFlipped(false);
         setQuizAnswers({});
         setQuizSubmitted({});
+        // Scroll to top when moving to next lesson
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       } else if (course.finalEvaluation) {
         setViewMode("evaluation");
@@ -145,6 +147,8 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
         setFlashcardFlipped(false);
         setQuizAnswers({});
         setQuizSubmitted({});
+        // Scroll to top when moving to next lesson
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       } else if (course.finalEvaluation) {
         setViewMode("evaluation");
@@ -169,6 +173,8 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
       setQuizAnswers({});
       setQuizSubmitted({});
       setViewMode("lesson");
+      // Scroll to top when moving to previous lesson
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -299,6 +305,8 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
                                   onClick={() => {
                                     setCurrentLessonIndex(globalIndex);
                                     setViewMode("lesson");
+                                    // Scroll to top when clicking on a lesson
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
                                   }}
                                   className={cn(
                                     "w-full text-left p-2 rounded-xl text-sm transition-all duration-200 flex items-center gap-3 group relative overflow-hidden",

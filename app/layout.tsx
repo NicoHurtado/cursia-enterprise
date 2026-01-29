@@ -11,6 +11,19 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.png",
   },
+  openGraph: {
+    title: "Cursia for Enterprise | Formación Corporativa de Alto Impacto con IA",
+    description: "Optimice el desarrollo de talento en su organización con Cursia. Plataforma B2B con IA avanzada para capacitación corporativa.",
+    url: "https://www.cursia.online",
+    siteName: "Cursia for Enterprise",
+    locale: "es_CO",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Cursia for Enterprise | Formación Corporativa de Alto Impacto con IA",
+    description: "Optimice el desarrollo de talento en su organización con Cursia. Plataforma B2B con IA avanzada.",
+  },
 };
 
 export default function RootLayout({
