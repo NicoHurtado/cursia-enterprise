@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 // PATCH /api/admin/leads/[id] - Actualizar lead
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -14,11 +14,12 @@ export async function PATCH(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const { id } = await params;
     const body = await request.json();
     const { status, notes } = body;
 
     const lead = await prisma.lead.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(status && { status }),
         ...(notes !== undefined && { notes }),
@@ -38,7 +39,7 @@ export async function PATCH(
 // DELETE /api/admin/leads/[id] - Eliminar lead
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -47,8 +48,10 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    const { id } = await params;
+
     await prisma.lead.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });
@@ -60,3 +63,4 @@ export async function DELETE(
     );
   }
 }
+
