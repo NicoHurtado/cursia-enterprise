@@ -1,35 +1,82 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
 import {
   ShieldCheck,
-  BrainCircuit,
   LayoutDashboard,
-  Zap,
   Users,
-  BarChart3,
   CheckCircle2,
-  Lock,
   ArrowRight,
   LogIn,
   Instagram,
-  Mail,
   Phone,
   MessageSquare,
   Sparkles,
   BookOpen,
-  PieChart
+  PieChart,
+  Calendar,
+  Building2,
+  Briefcase,
+  User,
+  Mail,
+  Smartphone
 } from "lucide-react";
 
-export default async function Home() {
-  const session = await auth();
+// Calendly URL - Actualizar con tu enlace real
+const CALENDLY_URL = "https://calendly.com/cursia/30min";
 
-  const dashboardLink = session ? (
-    session.user.role === "ADMIN" ? "/admin" :
-      (session.user.role === "CLIENT" || session.user.role === "CONTRACT_ADMIN") ? "/employee/admin" :
-        "/employee"
-  ) : "/auth/signin";
+export default function Home() {
+  const [formData, setFormData] = useState({
+    nombre: "",
+    celular: "",
+    correo: "",
+    empresa: "",
+    cargo: "",
+    numEmpleados: ""
+  });
+
+  const [showCalendly, setShowCalendly] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCalendlyClick = async () => {
+    try {
+      // Enviar datos al API de leads
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Error al guardar lead:', error);
+        // Continuar mostrando Calendly incluso si falla el guardado
+      }
+    } catch (error) {
+      console.error('Error al guardar lead:', error);
+      // Continuar mostrando Calendly incluso si falla el guardado
+    }
+
+    // Mostrar Calendly inline
+    setShowCalendly(true);
+
+    // Scroll suave hacia el widget de Calendly
+    setTimeout(() => {
+      const calendlySection = document.getElementById('calendly-widget');
+      if (calendlySection) {
+        calendlySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
+  const isFormValid = formData.nombre && formData.celular && formData.correo && formData.empresa && formData.cargo && formData.numEmpleados;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100 selection:text-blue-900">
@@ -61,10 +108,10 @@ export default async function Home() {
                 <Instagram className="w-5 h-5" />
               </a>
               <Link
-                href={dashboardLink}
+                href="/auth/signin"
                 className="hidden sm:flex items-center px-4 py-2 text-slate-600 hover:text-slate-900 transition-all font-bold text-sm gap-2"
               >
-                <LogIn className="w-4 h-4" /> {session ? "Mi Panel" : "Acceder"}
+                <LogIn className="w-4 h-4" /> Acceder
               </Link>
               <a
                 href="#contacto"
@@ -78,7 +125,7 @@ export default async function Home() {
       </nav>
 
       <main>
-        {/* Hero Section */}
+        {/* Hero Section with Two Clear CTAs */}
         <section className="relative pt-40 pb-24 lg:pt-56 lg:pb-40 overflow-hidden bg-white">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-blue-50 blur-[120px] rounded-full opacity-60 pointer-events-none" />
 
@@ -87,34 +134,50 @@ export default async function Home() {
               <ShieldCheck className="w-4 h-4" /> Integridad Garantizada
             </div>
 
-            <h1 className="text-6xl lg:text-[5.5rem] font-extrabold tracking-tight mb-8 text-slate-900 leading-[1.05]">
+            <h1 className="text-5xl lg:text-[5rem] font-extrabold tracking-tight mb-8 text-slate-900 leading-[1.05]">
               Cultura de Aprendizaje <br />
               Guiada por <span className="text-[#0066FF]">Inteligencia Artificial</span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-xl lg:text-2xl text-slate-500 mb-12 leading-relaxed font-normal">
+            <p className="max-w-2xl mx-auto text-xl lg:text-2xl text-slate-500 mb-16 leading-relaxed font-normal">
               Asegure el dominio real de habilidades con nuestra plataforma B2B. Consultoría estratégica, acompañamiento constante de IA y resultados verificables.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <a
-                href="#contacto"
-                className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-[#0066FF] text-white font-bold text-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-500/20"
-              >
-                Agendar Reunión Inicial <ArrowRight className="w-6 h-6" />
-              </a>
-              <Link
-                href={dashboardLink}
-                className="w-full sm:w-auto px-10 py-5 rounded-2xl bg-slate-100 text-slate-700 font-bold text-xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3"
-              >
-                {session ? "Ir a mi Panel" : "Acceso a la Plataforma"}
-              </Link>
-            </div>
+            {/* Two Clear CTA Cards */}
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {/* Card 1: Ya te dieron acceso */}
+              <div className="group p-8 rounded-[2rem] bg-gradient-to-br from-emerald-50 to-emerald-100/50 border-2 border-emerald-200 hover:border-emerald-300 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <CheckCircle2 className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-emerald-800 mb-3">¿Ya te dieron acceso?</h3>
+                <p className="text-emerald-700/80 mb-6 leading-relaxed">
+                  Ingresa con tu correo corporativo para acceder a tus cursos asignados y continuar tu formación.
+                </p>
+                <Link
+                  href="/auth/signin"
+                  className="w-full inline-flex items-center justify-center px-8 py-4 rounded-2xl bg-emerald-500 text-white font-bold text-lg hover:bg-emerald-600 transition-all gap-3 shadow-lg shadow-emerald-500/20"
+                >
+                  Ir a la Plataforma <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
 
-            <div className="mt-12 max-w-2xl mx-auto p-6 rounded-3xl bg-blue-50/50 border border-blue-100/50 text-slate-600 text-sm leading-relaxed">
-              <p>
-                <span className="font-bold text-[#0066FF]">Información Importante:</span> El contenido se habilita únicamente tras la sesión estratégica inicial con su organización. Si su empresa ya cuenta con un contrato activo, <strong>regístrese con su correo corporativo</strong> para visualizar automáticamente sus cursos asignados.
-              </p>
+              {/* Card 2: Aún no se ha cuadrado nada */}
+              <div className="group p-8 rounded-[2rem] bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-200 hover:border-blue-300 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10">
+                <div className="w-16 h-16 rounded-2xl bg-[#0066FF] flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <Calendar className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold text-blue-800 mb-3">¿Aún no se ha cuadrado nada?</h3>
+                <p className="text-blue-700/80 mb-6 leading-relaxed">
+                  Agenda una reunión estratégica con nosotros para conocer cómo podemos transformar la capacitación de tu empresa.
+                </p>
+                <a
+                  href="#contacto"
+                  className="w-full inline-flex items-center justify-center px-8 py-4 rounded-2xl bg-[#0066FF] text-white font-bold text-lg hover:bg-blue-700 transition-all gap-3 shadow-lg shadow-blue-500/20"
+                >
+                  Agendar Reunión <Calendar className="w-5 h-5" />
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -253,57 +316,263 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Contact Form Section */}
-        <section id="contacto" className="py-40 bg-white relative overflow-hidden">
+        {/* Contact Form Section with Calendly */}
+        <section id="contacto" className="py-32 bg-white relative overflow-hidden">
           <div className="absolute inset-0 bg-blue-50/50 pointer-events-none" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid lg:grid-cols-2 gap-20 items-center">
-              <div>
-                <h2 className="text-5xl font-black text-slate-900 mb-8 leading-tight">Iniciemos el Cambio <br /> en su Organización</h2>
-                <p className="text-xl text-slate-500 mb-12 font-light leading-relaxed">
-                  Para habilitar el acceso a su equipo, primero realizamos una consultoría técnica. Cuéntenos sobre su empresa y nos pondremos en contacto vía Instagram o WhatsApp para agendar una sesión.
-                </p>
-                <div className="space-y-6">
-                  <a
-                    href="https://instagram.com/cursia.online"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-4 p-6 rounded-[2rem] bg-white border border-slate-100 shadow-sm hover:translate-x-2 transition-transform group"
-                  >
-                    <div className="w-12 h-12 rounded-2xl bg-pink-50 flex items-center justify-center text-pink-500">
-                      <Instagram className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase mb-0.5">Contactar vía Instagram</p>
-                      <p className="font-bold text-slate-800">@cursia.online</p>
-                    </div>
-                  </a>
-                </div>
-              </div>
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6">
+                Iniciemos el Cambio <br />en su <span className="text-[#0066FF]">Organización</span>
+              </h2>
+              <p className="text-xl text-slate-500 leading-relaxed">
+                Complete sus datos y agende una reunión estratégica. Juntos diseñaremos el plan de capacitación ideal para su equipo.
+              </p>
+            </div>
 
-              <div className="p-10 md:p-12 rounded-[3.5rem] bg-white shadow-[0_30px_60px_-15px_rgba(0,102,255,0.1)] border border-slate-100">
-                <form className="space-y-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nombre Completo</label>
-                    <input type="text" placeholder="Ej: Juan Pérez" className="w-full px-6 py-4 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900" />
+            <div className="grid lg:grid-cols-2 gap-12 items-start">
+              {/* Contact Form */}
+              <div className="p-8 md:p-10 rounded-[2.5rem] bg-white shadow-[0_30px_60px_-15px_rgba(0,102,255,0.1)] border border-slate-100">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-[#0066FF] flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-white" />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Correo Corporativo</label>
-                    <input type="email" placeholder="nombre@empresa.com" className="w-full px-6 py-4 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900" />
+                  <div>
+                    <h3 className="font-bold text-xl text-slate-900">Agendar Reunión</h3>
+                    <p className="text-sm text-slate-500">Complete el formulario para continuar</p>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mensaje o Empresa</label>
-                    <textarea placeholder="Cuéntenos sus retos de capacitación..." rows={3} className="w-full px-6 py-4 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900 resize-none" />
+                </div>
+
+                <form className="space-y-5">
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <User className="w-3 h-3" /> Nombre y Apellidos
+                      </label>
+                      <input
+                        type="text"
+                        name="nombre"
+                        value={formData.nombre}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Juan Pérez García"
+                        className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <Smartphone className="w-3 h-3" /> Celular
+                      </label>
+                      <input
+                        type="tel"
+                        name="celular"
+                        value={formData.celular}
+                        onChange={handleInputChange}
+                        placeholder="Ej: 300 123 4567"
+                        className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                      />
+                    </div>
                   </div>
-                  <button type="button" className="w-full py-5 rounded-3xl bg-[#0066FF] text-white font-bold text-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]">
-                    Solicitar Consultoría Demo
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                      <Mail className="w-3 h-3" /> Correo
+                    </label>
+                    <input
+                      type="email"
+                      name="correo"
+                      value={formData.correo}
+                      onChange={handleInputChange}
+                      placeholder="nombre@empresa.com"
+                      className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <Building2 className="w-3 h-3" /> Nombre Empresa
+                      </label>
+                      <input
+                        type="text"
+                        name="empresa"
+                        value={formData.empresa}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Mi Empresa S.A.S"
+                        className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <Briefcase className="w-3 h-3" /> Cargo
+                      </label>
+                      <select
+                        name="cargo"
+                        value={formData.cargo}
+                        onChange={handleInputChange}
+                        className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                      >
+                        <option value="">Seleccione su cargo</option>
+                        <option value="Gerente de RRHH">Gerente de RRHH</option>
+                        <option value="Director de Talento Humano">Director de Talento Humano</option>
+                        <option value="Gerente General">Gerente General</option>
+                        <option value="Director de Operaciones">Director de Operaciones</option>
+                        <option value="Coordinador de Capacitación">Coordinador de Capacitación</option>
+                        <option value="Jefe de Área">Jefe de Área</option>
+                        <option value="CEO/Fundador">CEO/Fundador</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                      <Users className="w-3 h-3" /> Número de Empleados
+                    </label>
+                    <select
+                      name="numEmpleados"
+                      value={formData.numEmpleados}
+                      onChange={handleInputChange}
+                      className="w-full px-5 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all font-medium text-slate-900"
+                    >
+                      <option value="">Seleccione una opción</option>
+                      <option value="1-10">1 - 10 empleados</option>
+                      <option value="11-50">11 - 50 empleados</option>
+                      <option value="51-200">51 - 200 empleados</option>
+                      <option value="201-500">201 - 500 empleados</option>
+                      <option value="500+">Más de 500 empleados</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCalendlyClick}
+                    disabled={!isFormValid}
+                    className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-3 mt-6 ${isFormValid
+                      ? "bg-[#0066FF] text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      }`}
+                  >
+                    <Calendar className="w-5 h-5" />
+                    Agendar Reunión en Calendly
                   </button>
                 </form>
               </div>
+
+              {/* Contact Info Cards */}
+              <div className="space-y-6">
+
+
+                {/* Phone Cards */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <a
+                    href="tel:+573185529534"
+                    className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-[#0066FF] group-hover:bg-[#0066FF] group-hover:text-white transition-colors">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Llámanos</p>
+                      <p className="text-lg font-bold text-slate-800">318 552 9534</p>
+                    </div>
+                  </a>
+                  <a
+                    href="tel:+573005529221"
+                    className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-lg hover:border-blue-200 transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-[#0066FF] group-hover:bg-[#0066FF] group-hover:text-white transition-colors">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Llámanos</p>
+                      <p className="text-lg font-bold text-slate-800">300 552 9221</p>
+                    </div>
+                  </a>
+                </div>
+
+                {/* Instagram Card */}
+                <a
+                  href="https://instagram.com/cursia.online"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-5 p-6 rounded-[2rem] bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-100 shadow-sm hover:shadow-lg hover:translate-x-2 transition-all group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                    <Instagram className="w-7 h-7" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Síguenos en Instagram</p>
+                    <p className="text-xl font-bold text-slate-800">@cursia.online</p>
+                    <p className="text-sm text-pink-600 font-medium">Contenido exclusivo</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-pink-500 group-hover:translate-x-1 transition-all" />
+                </a>
+
+                {/* Info Box */}
+                <div className="p-6 rounded-2xl bg-blue-50/80 border border-blue-100">
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    <span className="font-bold text-[#0066FF]">💡 Tip:</span> Después de completar el formulario, podrás seleccionar el horario que más te convenga directamente en esta página.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Calendly Inline Widget */}
+          {showCalendly && (
+            <div
+              id="calendly-widget"
+              className="mt-16 animate-fade-in"
+            >
+              <div className="max-w-4xl mx-auto p-8 rounded-[2.5rem] bg-white shadow-[0_30px_60px_-15px_rgba(0,102,255,0.1)] border border-slate-100">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0066FF] flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xl text-slate-900">Selecciona tu horario</h3>
+                      <p className="text-sm text-slate-500">Elige el día y hora que mejor te convenga</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowCalendly(false)}
+                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                    aria-label="Cerrar"
+                  >
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Calendly Inline Embed */}
+                <div className="calendly-inline-widget" style={{ minWidth: '320px', height: '700px' }}>
+                  <iframe
+                    src={`${CALENDLY_URL}?embed_domain=${typeof window !== 'undefined' ? window.location.hostname : ''}&embed_type=Inline&name=${encodeURIComponent(formData.nombre)}&email=${encodeURIComponent(formData.correo)}`}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    className="rounded-2xl"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </main>
+
+      {/* WhatsApp Floating Button */}
+      <a
+        href="https://wa.me/573246590060"
+        target="_blank"
+        rel="noreferrer"
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 rounded-full bg-[#25D366] hover:bg-[#20BA5A] shadow-2xl hover:shadow-[#25D366]/50 transition-all hover:scale-110 group"
+        aria-label="Contactar por WhatsApp"
+      >
+        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+        </svg>
+      </a>
 
       {/* Footer */}
       <footer className="py-20 border-t border-slate-200 bg-slate-50">
@@ -319,6 +588,6 @@ export default async function Home() {
           <p className="text-slate-400 text-xs font-medium">© 2026 Cursia for Enterprise.</p>
         </div>
       </footer>
-    </div>
+    </div >
   );
 }

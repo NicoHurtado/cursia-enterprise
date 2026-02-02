@@ -1,0 +1,36 @@
+﻿   Ôû▓ Next.js 15.5.7
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+node.exe : Failed to 
+compile.
+En C:\Program 
+Files\nodejs\npx.ps1: 
+29 Carácter: 3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Failed to com   
+ pile.:String) [],     
+RemoteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+
+./app/api/admin/ai/gene
+rate-quiz/route.ts
+Module not found: 
+Can't resolve 
+'jsonrepair'
+
+https://nextjs.org/docs
+/messages/module-not-fo
+und
+
+
+> Build failed because 
+of webpack errors

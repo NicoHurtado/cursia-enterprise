@@ -291,3 +291,32 @@ enum ContractStatus {
   EXPIRED
   PENDING
 }
+
+enum LeadStatus {
+  SIN_CONTACTAR
+  PRIMER_CONTACTO
+  VEINTICUATRO_HORAS_ANTES
+  MANANA_MISMO_DIA
+  MEDIA_HORA_ANTES
+  NO_APARECIO
+  CERRADO
+  INICIAMOS_TRABAJO
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  nombre       String
+  celular      String
+  correo       String     @unique
+  empresa      String
+  cargo        String
+  numEmpleados String
+  status       LeadStatus @default(SIN_CONTACTAR)
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([correo])
+  @@index([status])
+}
+
