@@ -19,6 +19,10 @@ export function ContractManager({ contract, companyUsers }: ContractManagerProps
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Filter out pre-registered users who are already registered
+  const registeredEmails = new Set(contract.users.map((u: any) => u.email));
+  const uniquePreRegisteredUsers = contract.preRegisteredUsers.filter((u: any) => !registeredEmails.has(u.email));
+
   // Filter out users already in the contract
   const availableUsers = companyUsers.filter(
     (u) => !contract.preRegisteredUsers.some((p: any) => p.id === u.id)
@@ -71,11 +75,11 @@ export function ContractManager({ contract, companyUsers }: ContractManagerProps
             {contract.company.name} - {format(new Date(contract.startDate), "dd/MM/yyyy")} a {format(new Date(contract.endDate), "dd/MM/yyyy")}
           </p>
           <div className="mt-2">
-            <span className={`px-2 py-1 rounded text-xs font-bold ${contract.maxUsers > 0 && (contract.users.length + contract.preRegisteredUsers.length) >= contract.maxUsers
+            <span className={`px-2 py-1 rounded text-xs font-bold ${contract.maxUsers > 0 && (contract.users.length + uniquePreRegisteredUsers.length) >= contract.maxUsers
               ? 'bg-red-100 text-red-800'
               : 'bg-blue-100 text-blue-800'
               }`}>
-              Usuarios: {contract.users.length + contract.preRegisteredUsers.length}
+              Usuarios: {contract.users.length + uniquePreRegisteredUsers.length}
               {contract.maxUsers > 0 ? ` / ${contract.maxUsers}` : ' (Ilimitado)'}
             </span>
           </div>
@@ -157,7 +161,7 @@ export function ContractManager({ contract, companyUsers }: ContractManagerProps
                   <TableCell><span className="text-green-600 font-medium">Registrado</span></TableCell>
                 </TableRow>
               ))}
-              {contract.preRegisteredUsers.map((user: any) => (
+              {uniquePreRegisteredUsers.map((user: any) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -165,7 +169,7 @@ export function ContractManager({ contract, companyUsers }: ContractManagerProps
                   <TableCell><span className="text-yellow-600">Pendiente de Registro</span></TableCell>
                 </TableRow>
               ))}
-              {contract.users.length === 0 && contract.preRegisteredUsers.length === 0 && (
+              {contract.users.length === 0 && uniquePreRegisteredUsers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
                     No hay usuarios asignados
