@@ -22,7 +22,8 @@ import {
   Trophy,
   Star,
   Zap,
-  Eye
+  Eye,
+  Clock
 } from "lucide-react";
 import { StructuredContentRenderer } from "@/components/course/StructuredContentRenderer";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -60,6 +61,7 @@ interface CourseTestPlayerProps {
       id: string;
       questions: any;
       passingScore: number;
+      timeLimit?: number | null;
     } | null;
   };
   allLessons: Array<{
@@ -884,7 +886,9 @@ function EvaluationTestViewer({ evaluation, onStart }: { evaluation: any; onStar
           </div>
           <div className="bg-slate-50 p-6 rounded-2xl">
             <p className="text-slate-500 text-sm font-bold uppercase mb-1">Tiempo Est.</p>
-            <p className="text-3xl font-black text-slate-800">30 min</p>
+            <p className="text-3xl font-black text-slate-800">
+              {evaluation.timeLimit ? `${evaluation.timeLimit} min` : "Sin límite"}
+            </p>
           </div>
           <div className="bg-slate-50 p-6 rounded-2xl">
             <p className="text-slate-500 text-sm font-bold uppercase mb-1">Para Aprobar</p>
@@ -990,14 +994,40 @@ function EvaluationTakingViewer({
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(
+    evaluation.timeLimit ? evaluation.timeLimit * 60 : null
+  );
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
       await onSubmit(answers);
     } finally {
-      setSubmitting(false);
+      if (timeLeft !== null && timeLeft > 0) {
+        setSubmitting(false);
+      }
     }
+  };
+
+  useEffect(() => {
+    if (timeLeft === null) return;
+
+    if (timeLeft <= 0) {
+      handleSubmit();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const allAnswered = evaluation.questions.every((q: any, index: number) =>
@@ -1012,6 +1042,14 @@ function EvaluationTakingViewer({
         </Badge>
         <h2 className="text-3xl font-extrabold text-slate-800">Demuestra tu conocimiento</h2>
         <p className="text-slate-500 text-lg">Responde las siguientes preguntas abiertas.</p>
+
+        {timeLeft !== null && (
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-lg border-2 ${timeLeft < 60 ? "bg-red-50 text-red-600 border-red-200 animate-pulse" : "bg-blue-50 text-blue-600 border-blue-200"
+            }`}>
+            <Clock className="w-5 h-5" />
+            <span>{formatTime(timeLeft)}</span>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -1033,6 +1071,7 @@ function EvaluationTakingViewer({
                 placeholder="Escribe tu respuesta aquí..."
                 value={answers[index.toString()] || ""}
                 onChange={(e) => setAnswers(prev => ({ ...prev, [index.toString()]: e.target.value }))}
+                disabled={timeLeft === 0 || submitting}
               />
             </CardContent>
           </Card>

@@ -47,6 +47,7 @@ interface CourseEditorProps {
       id: string;
       questions: any;
       passingScore: number;
+      timeLimit?: number | null;
     } | null;
   };
 }

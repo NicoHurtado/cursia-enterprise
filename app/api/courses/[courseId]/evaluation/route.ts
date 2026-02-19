@@ -11,6 +11,7 @@ const evaluationSchema = z.object({
     })
   ),
   passingScore: z.number().min(0).max(100),
+  timeLimit: z.number().min(1).optional(),
 });
 
 export async function POST(
@@ -36,10 +37,12 @@ export async function POST(
         courseId,
         questions: data.questions as any,
         passingScore: data.passingScore,
+        timeLimit: data.timeLimit,
       },
       update: {
         questions: data.questions as any,
         passingScore: data.passingScore,
+        timeLimit: data.timeLimit,
       },
     });
 

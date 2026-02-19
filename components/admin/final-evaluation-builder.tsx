@@ -17,6 +17,7 @@ interface FinalEvaluationBuilderProps {
       idealAnswer: string;
     }>;
     passingScore: number;
+    timeLimit?: number | null;
   };
   onSaved?: () => void;
 }
@@ -28,6 +29,7 @@ export function FinalEvaluationBuilder({ courseId, initialData, onSaved }: Final
     idealAnswer: string;
   }>>(initialData?.questions || []);
   const [passingScore, setPassingScore] = useState(initialData?.passingScore || 70);
+  const [timeLimit, setTimeLimit] = useState<number | undefined>(initialData?.timeLimit || undefined);
   const [saving, setSaving] = useState(false);
 
   const handleAddQuestion = () => {
@@ -49,6 +51,7 @@ export function FinalEvaluationBuilder({ courseId, initialData, onSaved }: Final
         body: JSON.stringify({
           questions,
           passingScore,
+          timeLimit,
         }),
       });
 
@@ -77,15 +80,38 @@ export function FinalEvaluationBuilder({ courseId, initialData, onSaved }: Final
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label>Puntaje Mínimo de Aprobación (%)</Label>
-          <Input
-            type="number"
-            min="0"
-            max="100"
-            value={passingScore}
-            onChange={(e) => setPassingScore(Number(e.target.value))}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label>Puntaje Mínimo de Aprobación (%)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              value={passingScore}
+              onChange={(e) => setPassingScore(Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Límite de Tiempo (minutos)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="1"
+                placeholder="Sin límite"
+                value={timeLimit || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTimeLimit(val ? Number(val) : undefined);
+                }}
+              />
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                {timeLimit ? `${timeLimit} min` : "Ilimitado"}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Deja vacío para no poner límite de tiempo.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-4">
