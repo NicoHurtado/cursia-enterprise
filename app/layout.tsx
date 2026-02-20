@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { ExternalScripts } from "@/components/analytics/external-scripts";
+import { CriticalResources } from "@/components/performance/critical-resources";
 
 const nunito = Nunito({ subsets: ["latin"] });
 
@@ -26,6 +28,9 @@ export const metadata: Metadata = {
   },
 };
 
+// Obtener el Meta Pixel ID desde variables de entorno
+const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,8 +38,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      <head>
+        {/* Preconnect a dominios críticos para mejorar tiempos de carga */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body className={nunito.className}>
+        {/* Optimización de recursos críticos */}
+        <CriticalResources />
         <Providers>{children}</Providers>
+        {/* Scripts externos optimizados - cargan después del contenido crítico */}
+        <ExternalScripts metaPixelId={META_PIXEL_ID} />
       </body>
     </html>
   );
