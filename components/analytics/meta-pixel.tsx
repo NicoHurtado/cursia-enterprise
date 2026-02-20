@@ -8,16 +8,17 @@ interface MetaPixelProps {
 }
 
 export function MetaPixel({ pixelId }: MetaPixelProps) {
-  // Solo cargar si hay pixelId configurado
-  if (!pixelId) return null;
-
+  // Hook siempre debe ejecutarse (regla de React Hooks)
   useEffect(() => {
-    // Inicializar el pixel después de que el script se haya cargado
-    if (typeof window !== "undefined" && (window as any).fbq) {
+    // Solo inicializar si hay pixelId y el script ya se cargó
+    if (pixelId && typeof window !== "undefined" && (window as any).fbq) {
       (window as any).fbq("init", pixelId);
       (window as any).fbq("track", "PageView");
     }
   }, [pixelId]);
+
+  // Solo renderizar si hay pixelId configurado
+  if (!pixelId) return null;
 
   return (
     <>
