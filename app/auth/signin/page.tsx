@@ -116,7 +116,13 @@ export default function SignInPage() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                  onClick={() => signIn("credentials", { email: "admin@cursia.com", password: "admin123", callbackUrl: "/" })}
+                  onClick={() =>
+                    signIn("credentials", {
+                      email: "admin@cursia.com",
+                      password: "admin123",
+                      callbackUrl: "/admin",
+                    })
+                  }
                 >
                   Admin (Super Admin)
                 </Button>
@@ -124,7 +130,13 @@ export default function SignInPage() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                  onClick={() => signIn("credentials", { email: "admin@empresa.com", password: "password123", callbackUrl: "/" })}
+                  onClick={() =>
+                    signIn("credentials", {
+                      email: "admin@empresa.com",
+                      password: "password123",
+                      callbackUrl: "/employee/admin",
+                    })
+                  }
                 >
                   Admin Empresa
                 </Button>
@@ -132,7 +144,13 @@ export default function SignInPage() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                  onClick={() => signIn("credentials", { email: "pedrosaldafo1@gmail.com", password: "password123", callbackUrl: "/" })}
+                  onClick={() =>
+                    signIn("credentials", {
+                      email: "pedrosaldafo1@gmail.com",
+                      password: "password123",
+                      callbackUrl: "/employee",
+                    })
+                  }
                 >
                   Estudiante (Pedro)
                 </Button>

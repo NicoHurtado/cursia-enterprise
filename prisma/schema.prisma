@@ -22,6 +22,7 @@ model User {
   companies      Company[]
   contracts      Contract[]
   managedContracts Contract[] @relation("ContractAdmin")
+  agentConversations AgentConversation[]
 
   @@index([email])
 }
@@ -36,6 +37,7 @@ model Company {
   users              User[]
   contracts          Contract[]
   preRegisteredUsers PreRegisteredUser[]
+  agent              CompanyAgent?
 }
 
 model Contract {
@@ -319,5 +321,107 @@ model Lead {
 
   @@index([correo])
   @@index([status])
+}
+
+model CompanyAgent {
+  id                  String                @id @default(cuid())
+  companyId           String                @unique
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                String
+  uiColor             String                @default("#4f46e5")
+  isEnabled           Boolean               @default(true)
+  generalInstructions String?
+  sourceDocuments     AgentSourceDocument[]
+  chunks              AgentChunk[]
+  conversations       AgentConversation[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@index([companyId])
+}
+
+model AgentSourceDocument {
+  id        String                   @id @default(cuid())
+  agentId   String
+  agent     CompanyAgent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title     String
+  sourceType AgentSourceType
+  mimeType  String?
+  filePath  String?
+  rawText   String
+  status    AgentSourceStatus        @default(READY)
+  chunks    AgentChunk[]
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+}
+
+model AgentChunk {
+  id                String              @id @default(cuid())
+  agentId           String
+  agent             CompanyAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  documentId        String
+  document          AgentSourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex        Int
+  content           String
+  tokenCount        Int?
+  lexicalVector     Json?
+  embeddingProvider String
+  embeddingModel    String
+  embeddingVector   Json
+  createdAt         DateTime            @default(now())
+
+  @@index([agentId])
+  @@index([documentId])
+  @@unique([documentId, chunkIndex])
+}
+
+enum AgentSourceType {
+  TEXT
+  FILE
+}
+
+enum AgentSourceStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model AgentConversation {
+  id        String         @id @default(cuid())
+  agentId   String
+  agent     CompanyAgent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  messages  AgentMessage[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([agentId])
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model AgentMessage {
+  id             String                @id @default(cuid())
+  conversationId String
+  conversation   AgentConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AgentMessageRole
+  content        String
+  mode           String?
+  confidence     Float?
+  citations      Json?
+  createdAt      DateTime              @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+enum AgentMessageRole {
+  USER
+  ASSISTANT
 }
 

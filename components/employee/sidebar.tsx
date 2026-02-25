@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen, Home, Award, LayoutDashboard, Settings } from "lucide-react";
+import { Home, Award, LayoutDashboard, Settings, Bot } from "lucide-react";
 
 const navItems = [
   { href: "/employee", label: "Mis Cursos", icon: Home },
+  { href: "/employee/agent", label: "Agente IA", icon: Bot },
   { href: "/employee/certificates", label: "Certificados", icon: Award },
   { href: "/employee/settings", label: "Configuración", icon: Settings },
 ];
@@ -39,7 +40,9 @@ export function EmployeeSidebar({ userRole }: EmployeeSidebarProps) {
             (pathname.startsWith(item.href + "/") &&
               (item.href !== "/employee" ||
                 (!pathname.startsWith("/employee/certificates") &&
-                  !pathname.startsWith("/employee/admin"))));
+                  !pathname.startsWith("/employee/admin") &&
+                  !pathname.startsWith("/employee/agents") &&
+                  !pathname.startsWith("/employee/agent"))));
           return (
             <Link
               key={item.href}

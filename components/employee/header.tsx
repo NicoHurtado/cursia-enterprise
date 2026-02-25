@@ -37,8 +37,12 @@ export function EmployeeHeader({ userName }: { userName?: string }) {
           variant="ghost"
           size="sm"
           onClick={async () => {
-            await signOut({ redirect: false });
-            window.location.href = "/";
+            try {
+              await signOut({ callbackUrl: "/" });
+            } catch (error) {
+              console.error("Sign out failed, redirecting manually:", error);
+              window.location.href = "/";
+            }
           }}
         >
           <LogOut className="w-4 h-4 mr-2" />
