@@ -3,13 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { BookOpen, LayoutDashboard, Users, Settings, Building2, UserPlus } from "lucide-react";
+import {
+  BookOpen,
+  LayoutDashboard,
+  Users,
+  Settings,
+  Building2,
+  UserPlus,
+  Presentation,
+} from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/leads", label: "Leads", icon: UserPlus },
   { href: "/admin/companies", label: "Empresas", icon: Building2 },
   { href: "/admin/courses", label: "Cursos", icon: BookOpen },
+  { href: "/admin/pitchs", label: "Pitchs", icon: Presentation },
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/settings", label: "Configuración", icon: Settings },
 ];
