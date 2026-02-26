@@ -49,9 +49,16 @@ export interface EvidenceDecision {
   selected: RetrievedChunk[];
 }
 
-export function decideEvidenceMode(rankedChunks: RetrievedChunk[]): EvidenceDecision {
+export function decideEvidenceMode(
+  rankedChunks: RetrievedChunk[],
+  hasImage?: boolean
+): EvidenceDecision {
   if (rankedChunks.length === 0) {
-    return { mode: "fallback", confidence: calibrateConfidence("fallback", 0), selected: [] };
+    return {
+      mode: hasImage ? "image" : "fallback",
+      confidence: calibrateConfidence(hasImage ? "grounded" : "fallback", 0),
+      selected: [],
+    };
   }
 
   const top = rankedChunks[0];
@@ -59,8 +66,8 @@ export function decideEvidenceMode(rankedChunks: RetrievedChunk[]): EvidenceDeci
 
   if (top.score < MIN_EVIDENCE_THRESHOLD) {
     return {
-      mode: "fallback",
-      confidence: calibrateConfidence("fallback", top.score),
+      mode: hasImage ? "image" : "fallback",
+      confidence: calibrateConfidence(hasImage ? "grounded" : "fallback", top.score),
       selected: [],
     };
   }

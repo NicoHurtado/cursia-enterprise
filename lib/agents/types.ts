@@ -1,4 +1,4 @@
-export type AgentAnswerMode = "grounded" | "ambiguous" | "fallback";
+export type AgentAnswerMode = "grounded" | "ambiguous" | "fallback" | "image";
 
 export interface RetrievedChunk {
   id: string;

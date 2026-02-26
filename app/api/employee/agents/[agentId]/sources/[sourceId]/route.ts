@@ -26,6 +26,9 @@ export async function GET(
     companyIds.push(session.user.companyId);
   }
 
+  const { searchParams } = new URL(_req.url);
+  const chunkId = searchParams.get("chunkId");
+
   const source = await prisma.agentSourceDocument.findFirst({
     where: {
       id: sourceId,
@@ -47,6 +50,17 @@ export async function GET(
     return new NextResponse("Source not found", { status: 404 });
   }
 
-  return NextResponse.json(source);
+  let chunkContent = "";
+  if (chunkId) {
+    const chunk = await prisma.agentChunk.findFirst({
+      where: { id: chunkId, documentId: source.id },
+      select: { content: true },
+    });
+    if (chunk) {
+      chunkContent = chunk.content;
+    }
+  }
+
+  return NextResponse.json({ ...source, chunkContent });
 }
 

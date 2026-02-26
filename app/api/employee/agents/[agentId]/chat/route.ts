@@ -104,12 +104,12 @@ export async function POST(
 
     let conversation = conversationId
       ? await prisma.agentConversation.findFirst({
-          where: {
-            id: conversationId,
-            userId: session.user.id,
-            agentId: agent.id,
-          },
-        })
+        where: {
+          id: conversationId,
+          userId: session.user.id,
+          agentId: agent.id,
+        },
+      })
       : null;
 
     if (!conversation) {
@@ -162,11 +162,11 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         content: hasImageContext ? `${message}\n\n[Imagen adjunta]` : message,
         citations: imageFile
           ? {
-              hasImage: true,
-              imageType: imageFile.type || null,
-              imageSize: imageFile.size || null,
-              imageAnalysisStatus,
-            }
+            hasImage: true,
+            imageType: imageFile.type || null,
+            imageSize: imageFile.size || null,
+            imageAnalysisStatus,
+          }
           : undefined,
       },
     });
@@ -290,7 +290,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       6
     );
 
-    const decision = decideEvidenceMode(ranked);
+    const decision = decideEvidenceMode(ranked, hasImageContext);
     const effectiveMode = decision.mode;
     const effectiveSelected = decision.selected;
 
@@ -310,28 +310,28 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         content: string;
         score: number;
       }) => ({
-      chunkId: chunk.id,
-      documentId: chunk.documentId,
-      title: chunk.documentTitle,
-      excerpt: chunk.content.slice(0, 240),
-      score: Number(chunk.score.toFixed(4)),
-      fileUrl:
-        chunks.find(
-          (dbChunk: { id: string; document: { filePath: string | null } }) =>
-            dbChunk.id === chunk.id
-        )?.document.filePath || null,
-    })
+        chunkId: chunk.id,
+        documentId: chunk.documentId,
+        title: chunk.documentTitle,
+        excerpt: chunk.content.slice(0, 240),
+        score: Number(chunk.score.toFixed(4)),
+        fileUrl:
+          chunks.find(
+            (dbChunk: { id: string; document: { filePath: string | null } }) =>
+              dbChunk.id === chunk.id
+          )?.document.filePath || null,
+      })
     );
 
     const alternatives: AgentSourceAlternative[] | undefined =
       effectiveMode === "ambiguous"
         ? effectiveSelected.map((chunk) => ({
-            chunkId: chunk.id,
-            documentId: chunk.documentId,
-            title: chunk.documentTitle,
-            summary: chunk.content.slice(0, 260),
-            score: Number(chunk.score.toFixed(4)),
-          }))
+          chunkId: chunk.id,
+          documentId: chunk.documentId,
+          title: chunk.documentTitle,
+          summary: chunk.content.slice(0, 260),
+          score: Number(chunk.score.toFixed(4)),
+        }))
         : undefined;
 
     const payload = {
