@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { CompanyAgentManager } from "@/components/admin/company-agent-manager";
+import { CompanyAgentInsights } from "@/components/admin/company-agent-insights";
 
 interface CompanyManagerProps {
   company: any;
@@ -152,6 +153,7 @@ export function CompanyManager({ company }: CompanyManagerProps) {
           <TabsTrigger value="contracts">Contratos</TabsTrigger>
           <TabsTrigger value="users">Usuarios Pre-registrados</TabsTrigger>
           <TabsTrigger value="agent">Agente</TabsTrigger>
+          <TabsTrigger value="insights">Insights IA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contracts" className="space-y-6">
@@ -494,6 +496,10 @@ export function CompanyManager({ company }: CompanyManagerProps) {
 
         <TabsContent value="agent" className="space-y-6">
           <CompanyAgentManager companyId={company.id} companyName={company.name} />
+        </TabsContent>
+
+        <TabsContent value="insights" className="space-y-6">
+          <CompanyAgentInsights companyId={company.id} companyName={company.name} />
         </TabsContent>
       </Tabs>
     </div>

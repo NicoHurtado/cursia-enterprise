@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   Loader2,
@@ -32,12 +33,22 @@ interface AgentResponse {
   answer: string;
   confidence: number;
   citations: {
+    chunkId?: string;
     documentId: string;
     title: string;
     excerpt: string;
     score: number;
     fileUrl?: string | null;
   }[];
+  alternatives?: {
+    chunkId: string;
+    documentId: string;
+    title: string;
+    summary: string;
+    score: number;
+  }[];
+  requiresSourceSelection?: boolean;
+  ambiguityEventId?: string;
   blocked?: boolean;
   conversationId?: string;
   message?: string;
@@ -55,6 +66,15 @@ interface ConversationSummary {
   title: string;
   updatedAt: string;
   lastMessage: string;
+}
+
+interface SourcePreviewPayload {
+  id: string;
+  title: string;
+  rawText: string;
+  mimeType?: string | null;
+  filePath?: string | null;
+  updatedAt: string;
 }
 
 function getModeLabel(mode: AgentResponse["mode"]) {
@@ -83,6 +103,11 @@ export function CompanyAgentChat({
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [creatingNewChat, setCreatingNewChat] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [resolvingChunkId, setResolvingChunkId] = useState<string | null>(null);
+  const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
+  const [sourcePreviewLoading, setSourcePreviewLoading] = useState(false);
+  const [sourcePreview, setSourcePreview] = useState<SourcePreviewPayload | null>(null);
+  const [sourcePreviewExcerpt, setSourcePreviewExcerpt] = useState<string>("");
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const attachPastedImage = useCallback((blob: Blob) => {
@@ -107,6 +132,22 @@ export function CompanyAgentChat({
     () => ({ backgroundColor: uiColor, borderColor: uiColor, color: "#fff" }),
     [uiColor]
   );
+
+  const getHighlightedPreviewText = useCallback((fullText: string, excerpt: string) => {
+    if (!fullText.trim()) return "";
+    const cleanExcerpt = excerpt.trim();
+    if (!cleanExcerpt) return fullText.slice(0, 1400);
+
+    const normalizedFull = fullText.toLowerCase();
+    const normalizedExcerpt = cleanExcerpt.toLowerCase();
+    const index = normalizedFull.indexOf(normalizedExcerpt.slice(0, Math.min(80, normalizedExcerpt.length)));
+
+    if (index < 0) return fullText.slice(0, 1800);
+
+    const start = Math.max(0, index - 500);
+    const end = Math.min(fullText.length, index + cleanExcerpt.length + 500);
+    return fullText.slice(start, end);
+  }, []);
 
   const fetchConversations = useCallback(async () => {
     const res = await fetch(`/api/employee/agents/${agentId}/conversations`);
@@ -140,6 +181,8 @@ export function CompanyAgentChat({
                     answer: message.content,
                     confidence: message.confidence || 0,
                     citations: (message.citations || []) as AgentResponse["citations"],
+                    alternatives: [],
+                    requiresSourceSelection: false,
                     conversationId,
                   }
                 : undefined,
@@ -171,6 +214,89 @@ export function CompanyAgentChat({
       },
     ]);
   };
+
+  const openSourcePreview = useCallback(
+    async (documentId: string, excerpt: string) => {
+      setSourcePreviewOpen(true);
+      setSourcePreviewLoading(true);
+      setSourcePreviewExcerpt(excerpt);
+      try {
+        const res = await fetch(`/api/employee/agents/${agentId}/sources/${documentId}`);
+        if (!res.ok) {
+          throw new Error("No pude abrir la fuente referenciada.");
+        }
+        const data = (await res.json()) as SourcePreviewPayload;
+        setSourcePreview(data);
+      } catch (error) {
+        console.error(error);
+        setSourcePreview(null);
+      } finally {
+        setSourcePreviewLoading(false);
+      }
+    },
+    [agentId]
+  );
+
+  const resolveAmbiguity = useCallback(
+    async (
+      assistantMessageIdx: number,
+      option: NonNullable<AgentResponse["alternatives"]>[number],
+      messageMeta?: AgentResponse
+    ) => {
+      const latestUserQuestion =
+        [...messages]
+          .slice(0, assistantMessageIdx)
+          .reverse()
+          .find((item) => item.role === "user")?.text || "";
+      if (!latestUserQuestion.trim()) return;
+      const currentConversationId = messageMeta?.conversationId || activeConversationId;
+      if (!currentConversationId) return;
+
+      setResolvingChunkId(option.chunkId);
+      try {
+        const res = await fetch(`/api/employee/agents/${agentId}/chat/resolve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId: currentConversationId,
+            question: latestUserQuestion,
+            selectedChunkId: option.chunkId,
+            ambiguityEventId: messageMeta?.ambiguityEventId,
+          }),
+        });
+        const raw = await res.text();
+        const data = (raw ? JSON.parse(raw) : {}) as AgentResponse;
+        if (!res.ok) {
+          throw new Error(data?.message || "No se pudo resolver la ambigüedad.");
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: data.answer,
+            meta: data,
+          },
+        ]);
+        fetchConversations().catch((error) => console.error(error));
+      } catch (error) {
+        console.error(error);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text:
+              error instanceof Error
+                ? error.message
+                : "No pude resolver la ambigüedad en este momento.",
+          },
+        ]);
+      } finally {
+        setResolvingChunkId(null);
+      }
+    },
+    [activeConversationId, agentId, fetchConversations, messages]
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,9 +531,41 @@ export function CompanyAgentChat({
                       <span>Confianza: {(message.meta.confidence * 100).toFixed(1)}%</span>
                     </div>
                     {message.meta.mode === "ambiguous" && (
-                      <div className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Fuentes similares: respuesta potencialmente ambigua.
+                      <div className="space-y-2">
+                        <div className="text-xs text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Fuentes similares: elige la fuente que consideres correcta.
+                        </div>
+                        {!!message.meta.alternatives?.length && (
+                          <div className="space-y-2">
+                            {message.meta.alternatives.map((option) => (
+                              <div
+                                key={option.chunkId}
+                                className="rounded-md border bg-background p-2 text-xs"
+                              >
+                                <p className="font-semibold">{option.title}</p>
+                                <p className="text-muted-foreground line-clamp-2">
+                                  {option.summary}
+                                </p>
+                                <div className="mt-2 flex items-center justify-between">
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Score: {(option.score * 100).toFixed(1)}%
+                                  </span>
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-2 text-[11px]"
+                                    disabled={resolvingChunkId === option.chunkId}
+                                    onClick={() => resolveAmbiguity(idx, option, message.meta)}
+                                  >
+                                    {resolvingChunkId === option.chunkId
+                                      ? "Resolviendo..."
+                                      : "Responder con esta fuente"}
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                     {message.meta.citations?.length > 0 && (
@@ -421,13 +579,14 @@ export function CompanyAgentChat({
                             <p className="font-medium">{citation.title}</p>
                             <p className="text-muted-foreground line-clamp-2">{citation.excerpt}</p>
                             {citation.fileUrl && (
-                              <a
-                                href={`/employee/agents/${agentId}/sources/${citation.documentId}`}
-                                className="inline-block mt-2 text-[11px] underline underline-offset-2"
+                              <button
+                                type="button"
+                                onClick={() => openSourcePreview(citation.documentId, citation.excerpt)}
+                                className="mt-2 inline-block text-[11px] underline underline-offset-2"
                                 style={{ color: uiColor }}
                               >
-                                Ver documento en esta pagina
-                              </a>
+                                Ver evidencia destacada
+                              </button>
                             )}
                           </div>
                         ))}
@@ -511,6 +670,74 @@ export function CompanyAgentChat({
           </CardContent>
         </div>
       </Card>
+      <AnimatePresence>
+        {sourcePreviewOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="mx-auto mt-[7vh] max-h-[86vh] w-[min(980px,94vw)] overflow-hidden rounded-2xl border bg-background shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {sourcePreview?.title || "Evidencia referenciada"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Vista con fragmento destacado de la fuente utilizada.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setSourcePreviewOpen(false)}>
+                  Cerrar
+                </Button>
+              </div>
+              <div className="max-h-[76vh] overflow-y-auto px-4 py-4 text-sm leading-6">
+                {sourcePreviewLoading && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando fuente...
+                  </div>
+                )}
+                {!sourcePreviewLoading && sourcePreview && (
+                  <div className="space-y-3">
+                    <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                      Fragmento citado: {sourcePreviewExcerpt}
+                    </div>
+                    <pre className="whitespace-pre-wrap break-words font-sans">
+                      {(() => {
+                        const previewText = getHighlightedPreviewText(
+                          sourcePreview.rawText || "",
+                          sourcePreviewExcerpt
+                        );
+                        if (!sourcePreviewExcerpt.trim()) return previewText;
+                        const parts = previewText.split(sourcePreviewExcerpt);
+                        if (parts.length <= 1) return previewText;
+                        return parts.reduce<ReactNode[]>((acc, part, index) => {
+                          if (index > 0) {
+                            acc.push(
+                              <mark key={`mark-${index}`} className="rounded bg-yellow-200 px-0.5">
+                                {sourcePreviewExcerpt}
+                              </mark>
+                            );
+                          }
+                          acc.push(<span key={`part-${index}`}>{part}</span>);
+                          return acc;
+                        }, []);
+                      })()}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

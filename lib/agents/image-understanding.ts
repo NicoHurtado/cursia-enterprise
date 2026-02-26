@@ -23,6 +23,28 @@ export async function extractImageOcrText(buffer: Buffer) {
   }
 }
 
+function parseModelCandidates(explicitModel?: string, fallbackRaw?: string, defaults?: string[]) {
+  const list = [explicitModel, ...(fallbackRaw || "").split(",")]
+    .map((item) => (item || "").trim())
+    .filter(Boolean);
+  if (list.length > 0) return Array.from(new Set(list));
+  return defaults || [];
+}
+
+function canFallbackModel(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { status?: number; error?: { type?: string } };
+  if (candidate.status === 404 || candidate.status === 429) return true;
+  const errorType = candidate.error?.type || "";
+  return [
+    "not_found_error",
+    "model_not_found",
+    "invalid_request_error",
+    "rate_limit_error",
+    "permission_error",
+  ].includes(errorType);
+}
+
 async function describeImageWithAnthropic(
   base64: string,
   mimeType: string,
@@ -31,28 +53,46 @@ async function describeImageWithAnthropic(
   try {
     if (!process.env.ANTHROPIC_API_KEY) return "";
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await anthropic.messages.create({
-      model: process.env.VISION_MODEL || process.env.LLM_MODEL || "claude-3-5-sonnet-20241022",
-      max_tokens: 700,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
+    const models = parseModelCandidates(
+      process.env.VISION_MODEL || process.env.LLM_MODEL || "claude-sonnet-4-6",
+      process.env.VISION_FALLBACK_MODELS || process.env.LLM_FALLBACK_MODELS,
+      ["claude-haiku-4-5-20251001", "claude-3-5-haiku-latest"]
+    );
+    for (let index = 0; index < models.length; index += 1) {
+      const model = models[index];
+      try {
+        const response = await anthropic.messages.create({
+          model,
+          max_tokens: 900,
+          messages: [
             {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mimeType as any,
-                data: base64,
-              } as any,
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: mimeType as any,
+                    data: base64,
+                  } as any,
+                },
+              ] as any,
             },
-          ] as any,
-        },
-      ],
-    });
-    const block = response.content.find((item) => item.type === "text");
-    return block && "text" in block ? (block.text || "").trim() : "";
+          ],
+        });
+        const block = response.content.find((item) => item.type === "text");
+        return block && "text" in block ? (block.text || "").trim() : "";
+      } catch (error) {
+        const hasNext = index < models.length - 1;
+        if (hasNext && canFallbackModel(error)) {
+          console.warn(`Anthropic vision fallback: failed with ${model}, trying next model.`);
+          continue;
+        }
+        throw error;
+      }
+    }
+    return "";
   } catch (error) {
     console.error("Anthropic vision error:", error);
     return "";
@@ -117,7 +157,22 @@ export async function buildImageKnowledgeText(file: File, contextPrompt: string)
   const buffer = Buffer.from(await file.arrayBuffer());
   const [ocrResult, visionResult] = await Promise.allSettled([
     extractImageOcrText(buffer),
-    describeImageWithLlm(buffer, file.type || "image/png", contextPrompt),
+    describeImageWithLlm(
+      buffer,
+      file.type || "image/png",
+      `${contextPrompt}
+
+Entrega tu análisis en JSON con esta estructura:
+{
+  "summary": "resumen corto",
+  "visibleText": ["texto 1", "texto 2"],
+  "entities": [{"name":"", "type":"persona|empresa|producto|otro"}],
+  "numbersAndDates": ["..."],
+  "fieldsDetected": [{"field":"", "value":""}],
+  "confidenceNotes": "qué es dudoso o borroso"
+}
+Responde siempre en español.`
+    ),
   ]);
   const ocrText = ocrResult.status === "fulfilled" ? ocrResult.value : "";
   const visionDescription = visionResult.status === "fulfilled" ? visionResult.value : "";

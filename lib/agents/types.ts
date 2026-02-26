@@ -8,6 +8,14 @@ export interface RetrievedChunk {
   score: number;
 }
 
+export interface AgentSourceAlternative {
+  chunkId: string;
+  documentId: string;
+  title: string;
+  summary: string;
+  score: number;
+}
+
 export interface AgentCitation {
   documentId: string;
   title: string;
@@ -20,5 +28,8 @@ export interface AgentAnswerResult {
   answer: string;
   citations: AgentCitation[];
   confidence: number;
+  alternatives?: AgentSourceAlternative[];
+  requiresSourceSelection?: boolean;
+  ambiguityEventId?: string;
 }
 

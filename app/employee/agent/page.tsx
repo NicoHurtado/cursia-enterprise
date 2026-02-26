@@ -32,6 +32,7 @@ export default async function EmployeeSingleAgentPage() {
   const agent = await prisma.companyAgent.findFirst({
     where: { companyId: { in: Array.from(new Set(companyIds)) } },
     orderBy: { createdAt: "asc" },
+    include: { company: { select: { name: true } } },
   });
 
   if (!agent) {
@@ -49,6 +50,7 @@ export default async function EmployeeSingleAgentPage() {
       <CompanyAgentChat
         agentId={agent.id}
         agentName={agent.name}
+        companyName={agent.company.name}
         uiColor={agent.uiColor}
         isEnabled={agent.isEnabled}
       />

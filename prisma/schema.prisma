@@ -23,6 +23,7 @@ model User {
   contracts      Contract[]
   managedContracts Contract[] @relation("ContractAdmin")
   agentConversations AgentConversation[]
+  agentQuestionEvents AgentQuestionEvent[]
 
   @@index([email])
 }
@@ -334,6 +335,10 @@ model CompanyAgent {
   sourceDocuments     AgentSourceDocument[]
   chunks              AgentChunk[]
   conversations       AgentConversation[]
+  questionTopics      AgentQuestionTopic[]
+  questionClusters    AgentQuestionCluster[]
+  questionEvents      AgentQuestionEvent[]
+  ambiguityEvents     AgentAmbiguityEvent[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
@@ -397,6 +402,8 @@ model AgentConversation {
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   messages  AgentMessage[]
+  questionEvents AgentQuestionEvent[]
+  ambiguityEvents AgentAmbiguityEvent[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
@@ -420,8 +427,114 @@ model AgentMessage {
   @@index([createdAt])
 }
 
+model AgentQuestionTopic {
+  id              String              @id @default(cuid())
+  agentId         String
+  agent           CompanyAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name            String
+  normalizedKey   String
+  questionCount   Int                 @default(0)
+  answeredCount   Int                 @default(0)
+  unresolvedCount Int                 @default(0)
+  ambiguousCount  Int                 @default(0)
+  lastAskedAt     DateTime?
+  events          AgentQuestionEvent[]
+  clusters        AgentQuestionCluster[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([agentId, normalizedKey])
+  @@index([agentId])
+  @@index([questionCount])
+}
+
+model AgentQuestionCluster {
+  id                    String                @id @default(cuid())
+  agentId               String
+  agent                 CompanyAgent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  topicId               String?
+  topic                 AgentQuestionTopic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  canonicalQuestion     String
+  normalizedQuestionKey String
+  centroidEmbedding     Json?
+  questionCount         Int                   @default(0)
+  answeredCount         Int                   @default(0)
+  unresolvedCount       Int                   @default(0)
+  ambiguousCount        Int                   @default(0)
+  lastAnswer            String?
+  lastMode              String?
+  lastConfidence        Float?
+  lastAskedAt           DateTime?
+  events                AgentQuestionEvent[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([agentId])
+  @@index([topicId])
+  @@index([normalizedQuestionKey])
+}
+
+model AgentQuestionEvent {
+  id                     String                @id @default(cuid())
+  agentId                String
+  agent                  CompanyAgent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId         String?
+  conversation           AgentConversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  userId                 String?
+  user                   User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topicId                String?
+  topic                  AgentQuestionTopic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  clusterId              String?
+  cluster                AgentQuestionCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  questionText           String
+  normalizedQuestion     String
+  questionEmbedding      Json?
+  answerText             String?
+  mode                   String?
+  confidence             Float?
+  hasAnswer              Boolean               @default(false)
+  resolution             AgentQuestionResolution @default(UNRESOLVED)
+  imageMetadata          Json?
+  citationsSnapshot      Json?
+  selectedSourceDocumentId String?
+  createdAt              DateTime              @default(now())
+
+  ambiguityEvent         AgentAmbiguityEvent?
+
+  @@index([agentId])
+  @@index([topicId])
+  @@index([clusterId])
+  @@index([resolution])
+  @@index([createdAt])
+}
+
+model AgentAmbiguityEvent {
+  id                     String             @id @default(cuid())
+  agentId                String
+  agent                  CompanyAgent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId         String?
+  conversation           AgentConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  questionEventId        String?            @unique
+  questionEvent          AgentQuestionEvent? @relation(fields: [questionEventId], references: [id], onDelete: SetNull)
+  questionText           String
+  alternatives           Json
+  selectedSourceDocumentId String?
+  resolvedAt             DateTime?
+  createdAt              DateTime           @default(now())
+
+  @@index([agentId])
+  @@index([resolvedAt])
+  @@index([createdAt])
+}
+
 enum AgentMessageRole {
   USER
   ASSISTANT
+}
+
+enum AgentQuestionResolution {
+  ANSWERED
+  UNRESOLVED
+  AMBIGUOUS
 }
 

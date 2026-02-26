@@ -13,6 +13,28 @@ interface GenerateAgentAnswerInput {
 const FALLBACK_TEXT =
   "No encontré evidencia suficiente en los documentos internos. Te comparto una respuesta general de IA que debes validar con tu equipo.";
 
+function parseModelCandidates(explicitModel?: string, fallbackRaw?: string, defaults?: string[]) {
+  const list = [explicitModel, ...(fallbackRaw || "").split(",")]
+    .map((item) => (item || "").trim())
+    .filter(Boolean);
+  if (list.length > 0) return Array.from(new Set(list));
+  return defaults || [];
+}
+
+function canFallbackModel(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { status?: number; error?: { type?: string } };
+  if (candidate.status === 404 || candidate.status === 429) return true;
+  const errorType = candidate.error?.type || "";
+  return [
+    "not_found_error",
+    "model_not_found",
+    "invalid_request_error",
+    "rate_limit_error",
+    "permission_error",
+  ].includes(errorType);
+}
+
 function buildContext(chunks: RetrievedChunk[]) {
   return chunks
     .map(
@@ -60,13 +82,37 @@ ${context || "Sin contexto recuperado."}
 
   if (process.env.ANTHROPIC_API_KEY) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await anthropic.messages.create({
-      model: process.env.LLM_MODEL || "claude-3-haiku-20240307",
-      max_tokens: 900,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-    return (message.content[0] as Anthropic.TextBlock).text;
+    const models = parseModelCandidates(
+      process.env.LLM_MODEL || "claude-sonnet-4-6",
+      process.env.LLM_FALLBACK_MODELS,
+      ["claude-haiku-4-5-20251001", "claude-3-5-haiku-latest"]
+    );
+    let latestError: unknown;
+
+    for (let index = 0; index < models.length; index += 1) {
+      const model = models[index];
+      try {
+        const message = await anthropic.messages.create({
+          model,
+          max_tokens: 900,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        });
+        return (message.content[0] as Anthropic.TextBlock).text;
+      } catch (error) {
+        latestError = error;
+        const hasNext = index < models.length - 1;
+        if (hasNext && canFallbackModel(error)) {
+          console.warn(`Anthropic fallback: failed with ${model}, trying next model.`);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (latestError) {
+      throw latestError;
+    }
   }
 
   if (process.env.OPENAI_API_KEY) {

@@ -407,7 +407,11 @@ const slides = [
           Gracias
         </motion.h2>
         <p className="text-3xl text-gray-500 max-w-4xl leading-relaxed">
-          "Transformamos el conocimiento de su equipo en <span className="text-gray-900 font-semibold underline decoration-cursia-blue decoration-4 underline-offset-4">resultados reales</span>."
+          &quot;Transformamos el conocimiento de su equipo en{" "}
+          <span className="text-gray-900 font-semibold underline decoration-cursia-blue decoration-4 underline-offset-4">
+            resultados reales
+          </span>
+          .&quot;
         </p>
         <div className="flex gap-4 pt-8">
           <button className="px-8 py-4 bg-black text-white rounded-full font-bold text-lg hover:scale-105 transition-transform">

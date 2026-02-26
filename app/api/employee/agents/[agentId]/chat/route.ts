@@ -6,10 +6,12 @@ import { embedSingleText } from "@/lib/agents/embedding-provider";
 import { rankChunksBySimilarity } from "@/lib/agents/retrieval";
 import { decideEvidenceMode } from "@/lib/agents/answer-policy";
 import { generateAgentAnswer } from "@/lib/agents/generation";
+import type { AgentSourceAlternative } from "@/lib/agents/types";
 import {
   buildImageKnowledgeText,
   isSupportedImageMimeType,
 } from "@/lib/agents/image-understanding";
+import { recordQuestionEvent } from "@/lib/agents/question-insights";
 
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
@@ -136,6 +138,7 @@ export async function POST(
     }
 
     let imageContext = "";
+    let imageAnalysisStatus: "ok" | "partial" | "failed" | "none" = "none";
     if (imageFile) {
       try {
         imageContext = await buildImageKnowledgeText(
@@ -144,8 +147,10 @@ export async function POST(
 Pregunta: "${message}"
 Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos clave y cualquier detalle útil para responder con precisión.`
         );
+        imageAnalysisStatus = imageContext.trim() ? "ok" : "partial";
       } catch (imageError) {
         console.error("Image analysis failed:", imageError);
+        imageAnalysisStatus = "failed";
       }
     }
     const hasImageContext = !!imageContext.trim();
@@ -155,6 +160,14 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         conversationId: conversation.id,
         role: "USER",
         content: hasImageContext ? `${message}\n\n[Imagen adjunta]` : message,
+        citations: imageFile
+          ? {
+              hasImage: true,
+              imageType: imageFile.type || null,
+              imageSize: imageFile.size || null,
+              imageAnalysisStatus,
+            }
+          : undefined,
       },
     });
 
@@ -297,6 +310,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         content: string;
         score: number;
       }) => ({
+      chunkId: chunk.id,
       documentId: chunk.documentId,
       title: chunk.documentTitle,
       excerpt: chunk.content.slice(0, 240),
@@ -309,12 +323,42 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
     })
     );
 
+    const alternatives: AgentSourceAlternative[] | undefined =
+      effectiveMode === "ambiguous"
+        ? effectiveSelected.map((chunk) => ({
+            chunkId: chunk.id,
+            documentId: chunk.documentId,
+            title: chunk.documentTitle,
+            summary: chunk.content.slice(0, 260),
+            score: Number(chunk.score.toFixed(4)),
+          }))
+        : undefined;
+
     const payload = {
       mode: effectiveMode,
       confidence: Number(decision.confidence.toFixed(4)),
       answer,
       citations,
+      alternatives: alternatives || [],
+      requiresSourceSelection: effectiveMode === "ambiguous",
     };
+
+    const questionEvent = await recordQuestionEvent({
+      agentId: agent.id,
+      conversationId: conversation.id,
+      userId: session.user.id,
+      questionText: message,
+      questionEmbedding: queryVector,
+      answerText: payload.answer,
+      mode: payload.mode,
+      confidence: payload.confidence,
+      citationsSnapshot: payload.citations,
+      hasImage: !!imageFile,
+      imageType: imageFile?.type || null,
+      imageAnalysisStatus,
+      alternatives: alternatives || [],
+    });
+
     await prisma.agentMessage.create({
       data: {
         conversationId: conversation.id,
@@ -333,6 +377,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
 
     return NextResponse.json({
       ...payload,
+      ambiguityEventId: questionEvent.ambiguityEventId,
       conversationId: conversation.id,
     });
   } catch (error) {
