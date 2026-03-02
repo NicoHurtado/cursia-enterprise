@@ -11,6 +11,7 @@ import {
   Building2,
   UserPlus,
   Presentation,
+  ClipboardCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/admin/leads", label: "Leads", icon: UserPlus },
   { href: "/admin/companies", label: "Empresas", icon: Building2 },
   { href: "/admin/courses", label: "Cursos", icon: BookOpen },
+  { href: "/admin/assessments", label: "Evaluaciones", icon: ClipboardCheck },
   { href: "/admin/pitchs", label: "Pitchs", icon: Presentation },
   { href: "/admin/users", label: "Usuarios", icon: Users },
   { href: "/admin/settings", label: "Configuración", icon: Settings },

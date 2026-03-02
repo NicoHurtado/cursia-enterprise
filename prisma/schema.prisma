@@ -538,3 +538,28 @@ enum AgentQuestionResolution {
   AMBIGUOUS
 }
 
+model FreeAssessment {
+  id           String                 @id @default(cuid())
+  title        String
+  description  String?
+  questions    Json                   // Array<{ question: string; idealAnswer: string }>
+  passingScore Int                    @default(70)
+  timeLimit    Int?                   // En minutos
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  attempts     FreeAssessmentAttempt[]
+}
+
+model FreeAssessmentAttempt {
+  id              String         @id @default(cuid())
+  assessmentId    String
+  assessment      FreeAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  participantName String
+  score           Int
+  passed          Boolean
+  answers         Json           // { rawAnswers: {}, grading: {} }
+  completedAt     DateTime       @default(now())
+
+  @@index([assessmentId])
+}

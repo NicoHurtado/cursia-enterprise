@@ -201,8 +201,8 @@ export default async function ContractAdminPage() {
                           <TableRow key={user.id} className="hover:bg-slate-50/50 border-slate-100 transition-colors group">
                             <TableCell className="py-5 pl-8">
                               <div className="flex flex-col">
-                                <span className="font-bold text-slate-700">{user.name || 'Sin nombre'}</span>
-                                <span className="text-xs text-slate-400 font-medium">{user.email}</span>
+                                <span className="font-bold text-slate-700">{user.name || user.email}</span>
+                                {user.name && <span className="text-xs text-slate-400 font-medium">{user.email}</span>}
                               </div>
                             </TableCell>
                             <TableCell>

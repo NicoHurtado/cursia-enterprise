@@ -33,6 +33,12 @@ export const authConfig = {
       const isAdminRoute = nextUrl.pathname.startsWith('/admin');
       const isEmployeeRoute = nextUrl.pathname.startsWith('/employee');
       const isAuthRoute = nextUrl.pathname.startsWith('/auth');
+      const isAssessmentRoute = nextUrl.pathname.startsWith('/assessment');
+
+      // 0. Public assessment routes - always allowed without login
+      if (isAssessmentRoute) {
+        return true;
+      }
 
       // 1. If not logged in and trying to access any dashboard, redirect to login
       if ((isAdminRoute || isEmployeeRoute) && !isLoggedIn) {

@@ -3,6 +3,7 @@
 import { type ComponentType, useEffect, useMemo, useState } from "react";
 import { FileStack, Presentation, Sparkles } from "lucide-react";
 import PitchDeck from "@/components/pitch/PitchDeck";
+import { ENTERPRISE_PITCH_SLIDES, ADDITIONAL_PITCH_SLIDES } from "@/components/pitch/pitch-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,7 +12,7 @@ interface PitchItem {
   title: string;
   description: string;
   tags: string[];
-  component: ComponentType;
+  component: ComponentType<any>;
 }
 
 const PITCHES: PitchItem[] = [
@@ -20,7 +21,14 @@ const PITCHES: PitchItem[] = [
     title: "Pitch Cursia Enterprise",
     description: "Versión comercial principal con propuestas, planes y pricing.",
     tags: ["Comercial", "IA", "Corporativo"],
-    component: PitchDeck,
+    component: () => <PitchDeck slides={ENTERPRISE_PITCH_SLIDES} />,
+  },
+  {
+    id: "cursia-additional",
+    title: "Presentación Adicional",
+    description: "Contenido complementario enfocado en el Agente Cursia y diagnóstico.",
+    tags: ["Especializado", "Agente IA", "Diagnóstico"],
+    component: () => <PitchDeck slides={ADDITIONAL_PITCH_SLIDES} />,
   },
 ];
 
@@ -102,7 +110,7 @@ export function PitchsHub() {
           <div className="pointer-events-none fixed right-4 top-4 z-[130] rounded-full border border-white/30 bg-black/50 px-4 py-2 text-xs font-semibold tracking-wide text-white">
             Presiona ESC para salir
           </div>
-          {ActivePitchComponent ? <ActivePitchComponent /> : null}
+          {ActivePitchComponent ? <ActivePitchComponent key={activePitchId} /> : null}
         </div>
       )}
     </>

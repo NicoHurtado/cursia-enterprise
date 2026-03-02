@@ -53,9 +53,9 @@ export default async function AdminUsersPage() {
               {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">
-                    {user.name || "Sin nombre"}
+                    {user.name || user.email}
                   </TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.name ? user.email : ""}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{user.role}</Badge>
                   </TableCell>
