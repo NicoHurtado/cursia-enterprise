@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DeleteButton } from "@/components/admin/delete-button";
+import { ResetPasswordButton } from "@/components/admin/reset-password-button";
 
 export default async function AdminUsersPage() {
   const users = await prisma.user.findMany({
@@ -87,11 +88,18 @@ export default async function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <DeleteButton
-                      id={user.id}
-                      itemName="Usuario"
-                      endpoint="/api/admin/users"
-                    />
+                    <div className="flex items-center gap-1">
+                      <ResetPasswordButton
+                        userId={user.id}
+                        userName={user.name || user.email}
+                        className="hover:text-amber-600"
+                      />
+                      <DeleteButton
+                        id={user.id}
+                        itemName="Usuario"
+                        endpoint="/api/admin/users"
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
