@@ -85,12 +85,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-100 selection:text-blue-900">
-      {/* Precarga de Calendly a los ~3s (solo script, sin iframe) */}
-      <CalendlyWidget
-        url={CALENDLY_URL}
-        preloadScriptOnly={preloadCalendlyAtIdle}
-        shouldLoad={false}
-      />
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -617,6 +611,13 @@ export default function Home() {
           <p className="text-slate-400 text-xs font-medium">© 2026 Cursia for Enterprise.</p>
         </div>
       </footer>
-    </div >
+
+      {/* Precarga silenciosa de Calendly al final (solo script) */}
+      <CalendlyWidget
+        url={CALENDLY_URL}
+        preloadScriptOnly={preloadCalendlyAtIdle}
+        shouldLoad={false}
+      />
+    </div>
   );
 }

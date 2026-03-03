@@ -29,15 +29,25 @@ export function CalendlyWidget({
   // Script: precarga a los ~3s O cuando el usuario abre el calendario (y aún no se había precargado)
   const loadScript = preloadScriptOnly || (showIframe && !scriptAlreadyPreloaded);
 
-  const calendlyUrl = `${url}?embed_domain=${
-    typeof window !== "undefined" ? window.location.hostname : ""
-  }&embed_type=Inline${name ? `&name=${encodeURIComponent(name)}` : ""}${
-    email ? `&email=${encodeURIComponent(email)}` : ""
-  }`;
+  const calendlyUrl = `${url}?embed_domain=${typeof window !== "undefined" ? window.location.hostname : ""
+    }&embed_type=Inline${name ? `&name=${encodeURIComponent(name)}` : ""}${email ? `&email=${encodeURIComponent(email)}` : ""
+    }`;
+
+  if (preloadScriptOnly) {
+    return (
+      <Script
+        id="calendly-script"
+        src="https://assets.calendly.com/assets/external/widget.js"
+        strategy="lazyOnload"
+      />
+    );
+  }
+
+  if (!showIframe) return null;
 
   return (
     <>
-      {loadScript && (
+      {!scriptAlreadyPreloaded && (
         <Script
           id="calendly-script"
           src="https://assets.calendly.com/assets/external/widget.js"
@@ -45,27 +55,19 @@ export function CalendlyWidget({
         />
       )}
 
-      {!preloadScriptOnly && (
-        <div className="calendly-inline-widget" style={{ minWidth: "320px", height: "700px" }}>
-          {showIframe ? (
-            <iframe
-              src={calendlyUrl}
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              className="rounded-2xl"
-              title="Calendly Scheduling"
-              loading="lazy"
-              onLoad={() => setIsIframeLoaded(true)}
-              style={{ opacity: isIframeLoaded ? 1 : 0, transition: "opacity 0.3s" }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full bg-slate-50 rounded-2xl">
-              <div className="text-slate-400 text-sm">Preparando calendario...</div>
-            </div>
-          )}
-        </div>
-      )}
+      <div className="calendly-inline-widget" style={{ minWidth: "320px", height: "700px" }}>
+        <iframe
+          src={calendlyUrl}
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          className="rounded-2xl"
+          title="Calendly Scheduling"
+          loading="lazy"
+          onLoad={() => setIsIframeLoaded(true)}
+          style={{ opacity: isIframeLoaded ? 1 : 0, transition: "opacity 0.3s" }}
+        />
+      </div>
     </>
   );
 }
