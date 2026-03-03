@@ -649,12 +649,10 @@ export const AGENTE_CURSIA_PRICING_SLIDE = {
             </div>
 
             <div className="text-center md:text-right border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-10 min-w-[200px]">
-              <p className="text-lg text-gray-400 line-through font-bold mb-1">$2,998 USD</p>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Implementación</p>
               <div className="flex items-baseline gap-2 justify-center md:justify-end">
-                <span className="text-7xl font-black text-gray-900">1,499</span>
-                <span className="text-xl text-gray-500 font-bold">USD</span>
+                <span className="text-4xl font-black text-gray-900 italic tracking-tighter">SIN INVERSIÓN INICIAL</span>
               </div>
-              <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mt-3">Pago Único</p>
             </div>
           </div>
         </motion.div>
