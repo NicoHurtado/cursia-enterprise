@@ -1,0 +1,16 @@
+Manual de Pruebas de Calidad AI
+
+Título: Guía del Empleado Cursia
+Versión: 1.0
+
+1. Introducción
+Bienvenidos a la empresa. Somos líderes en formación.
+
+2. Horarios
+La oficina abre de 9am a 6pm.
+
+3. WiFi
+Red: Cursia_Guest
+Clave: Welcome2024
+
+Esta es una prueba de calidad. Faltan varias secciones como vacaciones, beneficios y políticas de seguridad.
