@@ -132,7 +132,7 @@ export default async function ContractAdminPage() {
                   </Badge>
                   <h2 className="text-2xl font-black text-slate-800 tracking-tight">{contract.company.name}</h2>
                   <p className="text-xs text-muted-foreground font-bold uppercase tracking-tighter">
-                    {format(contract.startDate, "dd MMM yyyy")} — {format(contract.endDate, "dd MMM yyyy")}
+                    {format(contract.startDate, "dd MMM yyyy")} — {contract.endDate ? format(contract.endDate, "dd MMM yyyy") : "Indefinido"}
                   </p>
                 </div>
               </div>

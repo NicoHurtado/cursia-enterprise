@@ -41,19 +41,28 @@ export default async function EmployeeDashboard() {
   // Filter enrollments to only show those with an active contract
   const activeContracts = await prisma.contract.findMany({
     where: {
-      OR: [
-        { users: { some: { id: session.user.id } } },
-        { preRegisteredUsers: { some: { email: session.user.email } } },
-      ],
-      status: "ACTIVE",
-      startDate: { lte: new Date() },
-      endDate: { gte: new Date() },
+      AND: [
+        {
+          OR: [
+            { users: { some: { id: session.user.id } } },
+            { preRegisteredUsers: { some: { email: session.user.email } } },
+          ],
+        },
+        { status: "ACTIVE" },
+        { startDate: { lte: new Date() } },
+        {
+          OR: [
+            { endDate: { gte: new Date() } },
+            { endDate: null }
+          ]
+        }
+      ]
     },
     include: { courses: { select: { id: true } } },
   });
 
   const availableCourseIds = new Set(
-    activeContracts.flatMap((c) => c.courses.map((course) => course.id))
+    (activeContracts as any[]).flatMap((c) => c.courses.map((course: any) => course.id))
   );
 
   const validEnrollments = enrollments.filter((e) =>

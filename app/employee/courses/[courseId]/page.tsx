@@ -73,14 +73,23 @@ export default async function CoursePage({
   // Check for ANY active contract for this user and course
   const activeContract = await prisma.contract.findFirst({
     where: {
-      OR: [
-        { users: { some: { id: session.user.id } } },
-        { preRegisteredUsers: { some: { email: session.user.email } } },
-      ],
-      courses: { some: { id: courseId } },
-      status: "ACTIVE",
-      startDate: { lte: new Date() },
-      endDate: { gte: new Date() },
+      AND: [
+        {
+          OR: [
+            { users: { some: { id: session.user.id } } },
+            { preRegisteredUsers: { some: { email: session.user.email } } },
+          ],
+        },
+        { courses: { some: { id: courseId } } },
+        { status: "ACTIVE" },
+        { startDate: { lte: new Date() } },
+        {
+          OR: [
+            { endDate: { gte: new Date() } },
+            { endDate: null }
+          ]
+        }
+      ]
     },
   });
 
@@ -105,6 +114,6 @@ export default async function CoursePage({
     );
   }
 
-  return <CoursePlayer enrollment={enrollment} />;
+  return <CoursePlayer enrollment={enrollment as any} />;
 }
 
