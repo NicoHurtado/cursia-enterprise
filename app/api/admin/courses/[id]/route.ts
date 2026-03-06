@@ -15,11 +15,12 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { title, description } = body;
+    const { title, description, isStrictNavigation } = body;
 
     const updateData: any = {};
     if (title) updateData.title = title;
     if (description !== undefined) updateData.description = description;
+    if (isStrictNavigation !== undefined) updateData.isStrictNavigation = isStrictNavigation;
 
     const updatedCourse = await prisma.course.update({
       where: { id },

@@ -174,13 +174,13 @@ export function CompanyManager({ company }: CompanyManagerProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Fecha Fin</Label>
+                    <Label>Fecha Fin (Opcional)</Label>
                     <Input
                       type="date"
                       value={contractForm.endDate}
                       onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
-                      required
                     />
+                    <p className="text-xs text-muted-foreground">Vacío para Indefinido</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Cantidad de Usuarios</Label>
@@ -274,7 +274,7 @@ export function CompanyManager({ company }: CompanyManagerProps) {
                         </span>
                       </TableCell>
                       <TableCell>{format(new Date(contract.startDate), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>{format(new Date(contract.endDate), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{contract.endDate ? format(new Date(contract.endDate), "dd/MM/yyyy") : "Indefinido"}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {contract.courses?.map((c: any) => (

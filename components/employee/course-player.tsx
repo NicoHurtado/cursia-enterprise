@@ -45,6 +45,7 @@ interface CoursePlayerProps {
       id: string;
       title: string;
       description: string | null;
+      isStrictNavigation: boolean;
       modules: Array<{
         id: string;
         title: string;
@@ -121,6 +122,7 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
 
   // Helper to check if a lesson is locked
   const isLessonLocked = (index: number) => {
+    if (!course.isStrictNavigation) return false;
     if (index === 0) return false;
     const prevLesson = allLessons[index - 1];
     return !completedLessons.has(prevLesson.id);
@@ -146,7 +148,7 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
 
   const canGoNext = currentLessonIndex < allLessons.length - 1;
   const canGoPrev = viewMode === "quiz" || (viewMode === "lesson" && currentLessonIndex > 0) || (viewMode === "evaluation" && allLessons.length > 0);
-  const canProceedToNext = !hasQuizzes || currentLessonQuizPassed;
+  const canProceedToNext = !course.isStrictNavigation || !hasQuizzes || currentLessonQuizPassed;
 
   const isDistractionFree = viewMode === "taking_evaluation";
 
@@ -466,18 +468,18 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                     <div className="pt-4 mt-4 border-t border-slate-100">
                       <Button
                         variant={viewMode === "evaluation" ? "default" : "outline"}
-                        disabled={!allQuizzesPassed && allQuizzesInCourse.length > 0}
+                        disabled={course.isStrictNavigation && !allQuizzesPassed && allQuizzesInCourse.length > 0}
                         className={cn(
                           "w-full justify-start rounded-xl h-12 font-bold",
                           viewMode === "evaluation"
                             ? "bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200"
-                            : allQuizzesPassed || allQuizzesInCourse.length === 0
+                            : (allQuizzesPassed || allQuizzesInCourse.length === 0 || !course.isStrictNavigation)
                               ? "border-2 border-slate-200 hover:border-indigo-200 hover:bg-indigo-50 text-slate-600"
                               : "border-2 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
                         )}
-                        onClick={() => (allQuizzesPassed || allQuizzesInCourse.length === 0) && setViewMode("evaluation")}
+                        onClick={() => (allQuizzesPassed || allQuizzesInCourse.length === 0 || !course.isStrictNavigation) && setViewMode("evaluation")}
                       >
-                        {!allQuizzesPassed && allQuizzesInCourse.length > 0 ? (
+                        {course.isStrictNavigation && !allQuizzesPassed && allQuizzesInCourse.length > 0 ? (
                           <Lock className="w-5 h-5 mr-3 text-slate-400" />
                         ) : (
                           <Trophy className="w-5 h-5 mr-3 text-yellow-500" />

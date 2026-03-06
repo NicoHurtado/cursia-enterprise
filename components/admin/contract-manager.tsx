@@ -72,7 +72,7 @@ export function ContractManager({ contract, companyUsers }: ContractManagerProps
         <div>
           <h1 className="text-3xl font-bold">Gestión de Contrato</h1>
           <p className="text-muted-foreground">
-            {contract.company.name} - {format(new Date(contract.startDate), "dd/MM/yyyy")} a {format(new Date(contract.endDate), "dd/MM/yyyy")}
+            {contract.company.name} - {format(new Date(contract.startDate), "dd/MM/yyyy")} a {contract.endDate ? format(new Date(contract.endDate), "dd/MM/yyyy") : "Indefinido"}
           </p>
           <div className="mt-2">
             <span className={`px-2 py-1 rounded text-xs font-bold ${contract.maxUsers > 0 && (contract.users.length + uniquePreRegisteredUsers.length) >= contract.maxUsers

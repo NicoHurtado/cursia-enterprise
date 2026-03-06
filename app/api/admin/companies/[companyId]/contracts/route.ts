@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const contractSchema = z.object({
   startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  endDate: z.preprocess((val) => (val === "" ? undefined : val), z.coerce.date().optional().nullable()),
   status: z.enum(["ACTIVE", "EXPIRED", "PENDING"]).optional(),
   documentUrl: z.string().optional(),
   courseIds: z.array(z.string()).optional(),
@@ -36,7 +36,9 @@ export async function POST(
 
     // Normalize dates
     startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     let adminId: string | undefined;
 
@@ -59,7 +61,7 @@ export async function POST(
       data: {
         companyId,
         startDate,
-        endDate,
+        endDate: endDate || null,
         status: status || "ACTIVE",
         documentUrl,
         maxUsers: maxUsers || 0,
