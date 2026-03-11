@@ -16,8 +16,6 @@ interface CompanyAgentManagerProps {
 
 interface AgentData {
   id: string;
-  name: string;
-  uiColor: string;
   isEnabled: boolean;
   generalInstructions?: string | null;
 }
@@ -58,8 +56,6 @@ export function CompanyAgentManager({ companyId, companyName }: CompanyAgentMana
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: agent.name,
-          uiColor: agent.uiColor,
           isEnabled: agent.isEnabled,
           generalInstructions: agent.generalInstructions || "",
         }),
@@ -111,24 +107,6 @@ export function CompanyAgentManager({ companyId, companyName }: CompanyAgentMana
           <CardTitle>Configuración del Agente de {companyName}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input
-                value={agent.name}
-                onChange={(e) => setAgent((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Color de interfaz</Label>
-              <Input
-                type="color"
-                value={agent.uiColor}
-                onChange={(e) => setAgent((prev) => (prev ? { ...prev, uiColor: e.target.value } : prev))}
-              />
-            </div>
-          </div>
-
           <div className="flex items-center gap-3">
             <Checkbox
               checked={agent.isEnabled}

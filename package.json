@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:fresh": "prisma generate && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push && prisma generate",
+    "db:migrate": "prisma migrate dev && prisma generate",
     "db:studio": "prisma studio",
     "db:init": "tsx scripts/init-db.ts",
     "postinstall": "prisma generate"

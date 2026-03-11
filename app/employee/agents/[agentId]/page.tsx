@@ -51,16 +51,14 @@ export default async function EmployeeAgentPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold">{agent.name}</h1>
+        <h1 className="text-3xl font-bold">Agente Cursia</h1>
         <p className="text-muted-foreground">
           Empresa: {agent.company.name} · {agent._count.sourceDocuments} fuentes disponibles
         </p>
       </div>
       <CompanyAgentChat
         agentId={agent.id}
-        agentName={agent.name}
         companyName={agent.company.name}
-        uiColor={agent.uiColor}
         isEnabled={agent.isEnabled}
       />
     </div>

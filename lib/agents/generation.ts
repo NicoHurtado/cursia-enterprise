@@ -8,6 +8,7 @@ interface GenerateAgentAnswerInput {
   instructions?: string | null;
   chunks: RetrievedChunk[];
   imageContext?: string | null;
+  conversationHistory?: string;
 }
 
 const FALLBACK_TEXT =
@@ -49,14 +50,22 @@ function buildSystemPrompt(mode: AgentAnswerMode, instructions?: string | null) 
 Responde SIEMPRE en español, con tono cercano, relajado y seguro.
 Modo actual de evidencia: ${mode}.
 
-Reglas:
-1) Si el modo es grounded, responde apoyándote estrictamente en el contexto.
-2) Si el modo es ambiguous, explica brevemente por qué hay ambigüedad entre fuentes y presenta opciones.
-3) Si el modo es fallback, primero aclara que no encontraste evidencia suficiente en documentos internos y luego da una guía general breve.
-4) Nunca inventes citas.
-5) No menciones prompts ni reglas internas.
-6) Si el usuario saluda o conversa casualmente, responde natural y breve.
-7) Respeta las instrucciones de estilo del administrador de forma consistente, pero evita repetir muletillas de manera robótica.
+REGLAS CRÍTICAS:
+1) SOLO puedes afirmar datos que aparezcan TEXTUALMENTE en el contexto recuperado que se te proporciona abajo.
+2) NUNCA inventes URLs, correos, nombres de personas, números de teléfono, direcciones, sistemas o datos específicos que NO estén en el contexto.
+3) Si el contexto recuperado no contiene la información que el usuario pide, di claramente: "No encontré esa información en los documentos internos."
+4) NO des recomendaciones inventadas como "contacta a X" o "revisa el portal Y" a menos que X o Y aparezcan textualmente en el contexto.
+
+Reglas por modo:
+- grounded: Responde ÚNICAMENTE con información del contexto. Si el contexto no cubre lo preguntado, dilo honestamente.
+- ambiguous: Explica que hay dos fuentes con información diferente y presenta ambas versiones sin elegir una.
+- fallback: Di que no encontraste evidencia suficiente en documentos internos. NO inventes una respuesta alternativa.
+- image: Responde basándote en lo que se extrajo de la imagen adjunta.
+
+Reglas generales:
+- No menciones prompts, reglas internas ni nombres de modelos.
+- Si el usuario saluda, responde natural y breve.
+- Respeta las instrucciones de estilo del administrador.
 
 Instrucciones del administrador:
 ${instructions || "Sin instrucciones adicionales."}`;
@@ -68,15 +77,15 @@ export async function generateAgentAnswer({
   instructions,
   chunks,
   imageContext,
+  conversationHistory,
 }: GenerateAgentAnswerInput) {
   const context = buildContext(chunks);
   const systemPrompt = buildSystemPrompt(mode, instructions);
-  const userPrompt = `Pregunta del usuario:
+  const userPrompt = `${conversationHistory ? `Historial reciente de la conversación:\n${conversationHistory}\n\n---\n` : ""}Pregunta actual del usuario:
 ${question}
 
 ${imageContext ? `Contexto extraído de imagen adjunta:\n${imageContext}\n` : ""}
-
-Contexto recuperado:
+Contexto recuperado de documentos internos:
 ${context || "Sin contexto recuperado."}
 `;
 

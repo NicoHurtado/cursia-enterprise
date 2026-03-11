@@ -231,7 +231,36 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       return NextResponse.json({ ...payload, conversationId: conversation.id });
     }
 
-    const retrievalQuery = hasImageContext ? `${message}\n${imageContext}` : message;
+    // Load recent conversation history for context
+    const recentMessages = conversation
+      ? await prisma.agentMessage.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: "desc" },
+          take: 6,
+          select: { role: true, content: true },
+        })
+      : [];
+    const historyContext = recentMessages
+      .reverse()
+      .map((m) => `${m.role === "USER" ? "Usuario" : "Asistente"}: ${m.content.slice(0, 300)}`)
+      .join("\n");
+
+    // If the current message is short/vague, augment the retrieval query
+    // with the last user message to maintain topic continuity
+    const messageWords = message.trim().split(/\s+/).length;
+    const isFollowUp = messageWords <= 6;
+    const lastUserMessage = recentMessages
+      .slice()
+      .reverse()
+      .find((m) => m.role === "USER");
+    const enrichedMessage =
+      isFollowUp && lastUserMessage && lastUserMessage.content !== message
+        ? `${lastUserMessage.content.slice(0, 200)} ${message}`
+        : message;
+
+    const retrievalQuery = hasImageContext
+      ? `${enrichedMessage}\n${imageContext}`
+      : enrichedMessage;
     const { vector: queryVector } = await embedSingleText(retrievalQuery);
     const readyDocumentIds = agent.sourceDocuments.map(
       (document: { id: string }) => document.id
@@ -277,6 +306,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         documentId: string;
         content: string;
         embeddingVector: unknown;
+        embeddingProvider: string;
         lexicalVector: unknown;
         document: { title: string };
       }) => ({
@@ -286,11 +316,12 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         content: chunk.content,
         embeddingVector: chunk.embeddingVector as number[],
         lexicalVector: (chunk.lexicalVector as Record<string, number> | null) || null,
+        embeddingProvider: chunk.embeddingProvider,
       })),
       6
     );
 
-    const decision = decideEvidenceMode(ranked, hasImageContext);
+    const decision = decideEvidenceMode(ranked, hasImageContext, enrichedMessage);
     const effectiveMode = decision.mode;
     const effectiveSelected = decision.selected;
 
@@ -300,6 +331,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       instructions: agent.generalInstructions,
       chunks: effectiveSelected,
       imageContext: hasImageContext ? imageContext : null,
+      conversationHistory: historyContext || undefined,
     });
 
     const citations = effectiveSelected.map(

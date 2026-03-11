@@ -3,9 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+const FIXED_AGENT_NAME = "Agente Cursia";
+const FIXED_UI_COLOR = "#0066FF";
+
 const updateAgentSchema = z.object({
-  name: z.string().min(1).max(120),
-  uiColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
   isEnabled: z.boolean(),
   generalInstructions: z.string().max(3000).optional().nullable(),
 });
@@ -49,8 +50,8 @@ export async function GET(
     (await prisma.companyAgent.create({
       data: {
         companyId,
-        name: `Agente ${company.name}`,
-        uiColor: "#4f46e5",
+        name: FIXED_AGENT_NAME,
+        uiColor: FIXED_UI_COLOR,
         isEnabled: true,
       },
     }));
@@ -79,15 +80,15 @@ export async function PUT(
     const agent = await prisma.companyAgent.upsert({
       where: { companyId },
       update: {
-        name: body.name,
-        uiColor: body.uiColor,
+        name: FIXED_AGENT_NAME,
+        uiColor: FIXED_UI_COLOR,
         isEnabled: body.isEnabled,
         generalInstructions: body.generalInstructions || null,
       },
       create: {
         companyId,
-        name: body.name,
-        uiColor: body.uiColor,
+        name: FIXED_AGENT_NAME,
+        uiColor: FIXED_UI_COLOR,
         isEnabled: body.isEnabled,
         generalInstructions: body.generalInstructions || null,
       },

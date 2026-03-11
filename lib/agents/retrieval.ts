@@ -209,6 +209,28 @@ export interface CandidateChunk {
   content: string;
   embeddingVector: number[];
   lexicalVector?: Record<string, number> | null;
+  embeddingProvider?: string;
+}
+
+function stripAccentsRetrieval(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function extractDistinctiveKeywords(text: string): string[] {
+  return stripAccentsRetrieval(text)
+    .toLowerCase()
+    .split(/[^a-z0-9n]+/g)
+    .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+}
+
+function exactKeywordBoost(queryKeywords: string[], chunkContent: string) {
+  if (queryKeywords.length === 0) return 0;
+  const normalizedContent = stripAccentsRetrieval(chunkContent).toLowerCase();
+  let matches = 0;
+  for (const kw of queryKeywords) {
+    if (normalizedContent.includes(kw)) matches += 1;
+  }
+  return matches / queryKeywords.length;
 }
 
 export function rankChunksBySimilarity(
@@ -218,6 +240,13 @@ export function rankChunksBySimilarity(
   topK = 6
 ): RetrievedChunk[] {
   const queryLexicalVector = buildLexicalVector(queryText);
+  const queryKeywords = extractDistinctiveKeywords(queryText);
+
+  const isMockEmbeddings =
+    chunks.length > 0 &&
+    (chunks[0] as CandidateChunk & { embeddingProvider?: string })
+      .embeddingProvider === "mock";
+
   const ranked = chunks
     .map((chunk) => {
       const semantic = cosineSimilarity(queryVector, chunk.embeddingVector);
@@ -230,9 +259,12 @@ export function rankChunksBySimilarity(
       const concept = chunk.lexicalVector
         ? conceptSimilarity(queryLexicalVector, chunk.lexicalVector)
         : conceptSimilarity(queryLexicalVector, buildLexicalVector(chunk.content));
-      // Coverage avoids penalizing long chunks that still contain query terms.
-      const score =
-        semantic * 0.3 + chunkLexicalVector * 0.25 + tokenCoverage * 0.35 + concept * 0.1;
+      const keywordBoost = exactKeywordBoost(queryKeywords, chunk.content);
+
+      const score = isMockEmbeddings
+        ? chunkLexicalVector * 0.2 + tokenCoverage * 0.3 + concept * 0.15 + keywordBoost * 0.35
+        : semantic * 0.25 + chunkLexicalVector * 0.2 + tokenCoverage * 0.25 + concept * 0.1 + keywordBoost * 0.2;
+
       return {
         id: chunk.id,
         documentId: chunk.documentId,

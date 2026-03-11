@@ -49,9 +49,7 @@ export default async function EmployeeSingleAgentPage() {
     <div className="h-full">
       <CompanyAgentChat
         agentId={agent.id}
-        agentName={agent.name}
         companyName={agent.company.name}
-        uiColor={agent.uiColor}
         isEnabled={agent.isEnabled}
       />
     </div>

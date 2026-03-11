@@ -1,6 +1,13 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
@@ -10,21 +17,25 @@ import {
   Plus,
   Paperclip,
   X,
-  Sparkles,
   MessageCircle,
   ArrowRight,
   ShieldCheck,
+  ArrowLeft,
+  Menu,
+  Clock,
+  ChevronRight,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const CURSIA_BLUE = "#0066FF";
+const AGENT_NAME = "Agente Cursia";
 
 interface AgentChatProps {
   agentId: string;
-  agentName: string;
   companyName: string;
-  uiColor: string;
   isEnabled: boolean;
 }
 
@@ -78,32 +89,85 @@ interface SourcePreviewPayload {
   chunkContent?: string;
 }
 
+const SUGGESTED_QUESTIONS = [
+  "¿Cuáles son las políticas de vacaciones?",
+  "¿Cómo solicito permisos?",
+  "¿Cuál es la política de trabajo remoto?",
+  "¿Cuáles son los beneficios de la empresa?",
+];
+
 function getModeLabel(mode: AgentResponse["mode"]) {
-  if (mode === "fallback") return "No encontrado en archivos (respuesta general)";
-  if (mode === "ambiguous") return "Respuesta ambigua entre fuentes";
-  if (mode === "image") return "Análisis de imagen adjunta";
+  if (mode === "fallback") return "No encontrado en archivos";
+  if (mode === "ambiguous") return "Fuentes contradictorias";
+  if (mode === "image") return "Análisis de imagen";
   return "Basado en archivos internos";
+}
+
+function normalizeForSearch(text: string) {
+  return text.replace(/\s+/g, " ").toLowerCase().trim();
+}
+
+function findMatchInOriginal(
+  original: string,
+  target: string
+): { start: number; end: number } | null {
+  const normTarget = normalizeForSearch(target);
+  if (!normTarget) return null;
+
+  const chars: string[] = [];
+  const map: number[] = [];
+  let prevSpace = true;
+  for (let i = 0; i < original.length; i++) {
+    const ch = original[i];
+    if (/\s/.test(ch)) {
+      if (!prevSpace) {
+        chars.push(" ");
+        map.push(i);
+        prevSpace = true;
+      }
+    } else {
+      chars.push(ch.toLowerCase());
+      map.push(i);
+      prevSpace = false;
+    }
+  }
+  const normOriginal = chars.join("");
+
+  const minLen = Math.min(30, normTarget.length);
+  for (
+    let len = normTarget.length;
+    len >= minLen;
+    len = Math.max(minLen, len - 20)
+  ) {
+    const searchStr = normTarget.slice(0, len);
+    const idx = normOriginal.indexOf(searchStr);
+    if (idx >= 0) {
+      const startOrig = map[idx] ?? 0;
+      const endNorm = Math.min(idx + normTarget.length, normOriginal.length);
+      const endOrig =
+        (map[endNorm] ?? map[map.length - 1] ?? original.length) + 1;
+      return { start: startOrig, end: Math.min(endOrig, original.length) };
+    }
+    if (len === minLen) break;
+  }
+  return null;
 }
 
 export function CompanyAgentChat({
   agentId,
-  agentName,
   companyName,
-  uiColor,
   isEnabled,
 }: AgentChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      text: `Hola, soy ${agentName}. Pregúntame con confianza usando la base documental de tu empresa.`,
-    },
-  ]);
+  const agentName = AGENT_NAME;
+  const uiColor = CURSIA_BLUE;
+  const [view, setView] = useState<"welcome" | "chat">("welcome");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [creatingNewChat, setCreatingNewChat] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [resolvingChunkId, setResolvingChunkId] = useState<string | null>(null);
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
@@ -111,802 +175,769 @@ export function CompanyAgentChat({
   const [sourcePreview, setSourcePreview] = useState<SourcePreviewPayload | null>(null);
   const [sourcePreviewExcerpt, setSourcePreviewExcerpt] = useState<string>("");
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const attachPastedImage = useCallback((blob: Blob) => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const extension = blob.type.includes("png")
-      ? "png"
-      : blob.type.includes("webp")
-        ? "webp"
-        : "jpg";
-    const file = new File([blob], `captura-${timestamp}.${extension}`, {
-      type: blob.type || "image/png",
-    });
-    setSelectedImage(file);
-  }, []);
-
-  const badgeColor = useMemo(() => ({ backgroundColor: uiColor }), [uiColor]);
-  const softColor = useMemo(
-    () => ({ backgroundColor: `${uiColor}1A`, borderColor: `${uiColor}33` }),
-    [uiColor]
-  );
   const sendButtonStyle = useMemo(
     () => ({ backgroundColor: uiColor, borderColor: uiColor, color: "#fff" }),
     [uiColor]
   );
+  const accentBorder = useMemo(() => ({ borderColor: `${uiColor}33` }), [uiColor]);
+  const accentGlow = useMemo(() => ({ boxShadow: `0 0 40px ${uiColor}20` }), [uiColor]);
 
-  const getHighlightedPreviewText = useCallback((fullText: string, excerpt: string) => {
-    if (!fullText.trim()) return "";
-    const cleanExcerpt = excerpt.trim();
-    if (!cleanExcerpt) return fullText.slice(0, 1400);
-
-    const normalizedFull = fullText.toLowerCase();
-    const normalizedExcerpt = cleanExcerpt.toLowerCase();
-    const index = normalizedFull.indexOf(normalizedExcerpt.slice(0, Math.min(80, normalizedExcerpt.length)));
-
-    if (index < 0) return fullText.slice(0, 1800);
-
-    const start = Math.max(0, index - 500);
-    const end = Math.min(fullText.length, index + cleanExcerpt.length + 500);
-    return fullText.slice(start, end);
+  const attachPastedImage = useCallback((blob: Blob) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const extension = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : "jpg";
+    setSelectedImage(new File([blob], `captura-${timestamp}.${extension}`, { type: blob.type || "image/png" }));
   }, []);
 
   const fetchConversations = useCallback(async () => {
     const res = await fetch(`/api/employee/agents/${agentId}/conversations`);
     if (!res.ok) return;
-    const data = (await res.json()) as ConversationSummary[];
-    setConversations(data);
-    // Auto-select last chat only on initial load, not when user explicitly starts a new chat.
-    if (!creatingNewChat && !activeConversationId && data.length > 0) {
-      setActiveConversationId(data[0].id);
-    }
-  }, [agentId, activeConversationId, creatingNewChat]);
+    setConversations((await res.json()) as ConversationSummary[]);
+  }, [agentId]);
 
-  const loadConversation = useCallback(
-    async (conversationId: string) => {
-      setLoadingHistory(true);
-      try {
-        const res = await fetch(
-          `/api/employee/agents/${agentId}/conversations/${conversationId}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        setMessages(
-          data.messages.map((message: any) => ({
-            id: message.id,
-            role: message.role === "USER" ? "user" : "assistant",
-            text: message.content,
-            meta:
-              message.role === "ASSISTANT"
-                ? {
-                  mode: (message.mode || "fallback") as AgentResponse["mode"],
-                  answer: message.content,
-                  confidence: message.confidence || 0,
-                  citations: (message.citations || []) as AgentResponse["citations"],
-                  alternatives: [],
-                  requiresSourceSelection: false,
-                  conversationId,
-                }
-                : undefined,
-          }))
-        );
-      } finally {
-        setLoadingHistory(false);
-      }
-    },
-    [agentId]
-  );
+  const loadConversation = useCallback(async (conversationId: string) => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/employee/agents/${agentId}/conversations/${conversationId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setMessages(
+        data.messages.map((m: any) => ({
+          id: m.id,
+          role: m.role === "USER" ? "user" : "assistant",
+          text: m.content,
+          meta: m.role === "ASSISTANT"
+            ? { mode: (m.mode || "fallback") as AgentResponse["mode"], answer: m.content, confidence: m.confidence || 0, citations: (m.citations || []) as AgentResponse["citations"], alternatives: [], requiresSourceSelection: false, conversationId }
+            : undefined,
+        }))
+      );
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [agentId]);
 
   useEffect(() => {
-    fetchConversations().catch((error) => console.error(error));
+    fetchConversations().catch(console.error);
   }, [fetchConversations]);
 
   useEffect(() => {
     if (!activeConversationId) return;
-    loadConversation(activeConversationId).catch((error) => console.error(error));
+    loadConversation(activeConversationId).catch(console.error);
   }, [activeConversationId, loadConversation]);
 
-  const createNewConversation = () => {
-    setCreatingNewChat(true);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const startNewChat = () => {
     setActiveConversationId(null);
-    setMessages([
-      {
-        role: "assistant",
-        text: `Hola, soy ${agentName}. Pregúntame con confianza usando la base documental de tu empresa.`,
-      },
-    ]);
+    setMessages([]);
+    setSidebarOpen(false);
+    setView("chat");
   };
 
-  const openSourcePreview = useCallback(
-    async (documentId: string, excerpt: string, chunkId?: string) => {
-      setSourcePreviewOpen(true);
-      setSourcePreviewLoading(true);
-      setSourcePreviewExcerpt(excerpt);
-      try {
-        const url = chunkId
-          ? `/api/employee/agents/${agentId}/sources/${documentId}?chunkId=${chunkId}`
-          : `/api/employee/agents/${agentId}/sources/${documentId}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error("No pude abrir la fuente referenciada.");
-        }
-        const data = (await res.json()) as SourcePreviewPayload;
-        setSourcePreview(data);
-      } catch (error) {
-        console.error(error);
-        setSourcePreview(null);
-      } finally {
-        setSourcePreviewLoading(false);
-      }
-    },
-    [agentId]
-  );
+  const openConversation = (id: string) => {
+    setActiveConversationId(id);
+    setSidebarOpen(false);
+    setView("chat");
+  };
 
-  const resolveAmbiguity = useCallback(
-    async (
-      assistantMessageIdx: number,
-      option: NonNullable<AgentResponse["alternatives"]>[number],
-      messageMeta?: AgentResponse
-    ) => {
-      const latestUserQuestion =
-        [...messages]
-          .slice(0, assistantMessageIdx)
-          .reverse()
-          .find((item) => item.role === "user")?.text || "";
-      if (!latestUserQuestion.trim()) return;
-      const currentConversationId = messageMeta?.conversationId || activeConversationId;
-      if (!currentConversationId) return;
+  const openSourcePreview = useCallback(async (documentId: string, excerpt: string, chunkId?: string) => {
+    setSourcePreviewOpen(true);
+    setSourcePreviewLoading(true);
+    setSourcePreviewExcerpt(excerpt);
+    try {
+      const url = chunkId
+        ? `/api/employee/agents/${agentId}/sources/${documentId}?chunkId=${chunkId}`
+        : `/api/employee/agents/${agentId}/sources/${documentId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      setSourcePreview((await res.json()) as SourcePreviewPayload);
+    } catch {
+      setSourcePreview(null);
+    } finally {
+      setSourcePreviewLoading(false);
+    }
+  }, [agentId]);
 
-      setResolvingChunkId(option.chunkId);
-      try {
-        const res = await fetch(`/api/employee/agents/${agentId}/chat/resolve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId: currentConversationId,
-            question: latestUserQuestion,
-            selectedChunkId: option.chunkId,
-            ambiguityEventId: messageMeta?.ambiguityEventId,
-          }),
-        });
-        const raw = await res.text();
-        const data = (raw ? JSON.parse(raw) : {}) as AgentResponse;
-        if (!res.ok) {
-          throw new Error(data?.message || "No se pudo resolver la ambigüedad.");
-        }
+  const resolveAmbiguity = useCallback(async (
+    assistantMessageIdx: number,
+    option: NonNullable<AgentResponse["alternatives"]>[number],
+    messageMeta?: AgentResponse
+  ) => {
+    const latestUserQuestion = [...messages].slice(0, assistantMessageIdx).reverse().find((m) => m.role === "user")?.text || "";
+    if (!latestUserQuestion.trim()) return;
+    const currentConversationId = messageMeta?.conversationId || activeConversationId;
+    if (!currentConversationId) return;
+    setResolvingChunkId(option.chunkId);
+    try {
+      const res = await fetch(`/api/employee/agents/${agentId}/chat/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: currentConversationId, question: latestUserQuestion, selectedChunkId: option.chunkId, ambiguityEventId: messageMeta?.ambiguityEventId }),
+      });
+      const data = (await res.json()) as AgentResponse;
+      if (!res.ok) throw new Error(data?.message);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.answer, meta: data }]);
+      fetchConversations().catch(console.error);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: "assistant", text: err instanceof Error ? err.message : "No pude resolver la ambigüedad." }]);
+    } finally {
+      setResolvingChunkId(null);
+    }
+  }, [activeConversationId, agentId, fetchConversations, messages]);
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            text: data.answer,
-            meta: data,
-          },
-        ]);
-        fetchConversations().catch((error) => console.error(error));
-      } catch (error) {
-        console.error(error);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            text:
-              error instanceof Error
-                ? error.message
-                : "No pude resolver la ambigüedad en este momento.",
-          },
-        ]);
-      } finally {
-        setResolvingChunkId(null);
-      }
-    },
-    [activeConversationId, agentId, fetchConversations, messages]
-  );
+  const submit = async (e: React.FormEvent | null, prefillMessage?: string) => {
+    if (e) e.preventDefault();
+    const question = (prefillMessage || input).trim() || (selectedImage ? "Analiza la imagen y responde con precisión." : "");
+    if (!question && !selectedImage) return;
+    if (loading) return;
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if ((!input.trim() && !selectedImage) || loading) return;
-    const question = input.trim() || "Analiza la imagen y responde con precisión.";
+    if (view === "welcome") setView("chat");
+
     setInput("");
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        text: selectedImage ? `${question}\n\n[Imagen adjunta: ${selectedImage.name}]` : question,
-      },
-    ]);
+    setMessages((prev) => [...prev, { role: "user", text: selectedImage ? `${question}\n\n[Imagen: ${selectedImage.name}]` : question }]);
     setLoading(true);
 
     try {
       const isImageAttached = !!selectedImage;
-      const res = await fetch(
-        `/api/employee/agents/${agentId}/chat`,
-        isImageAttached
-          ? {
-            method: "POST",
-            body: (() => {
-              const formData = new FormData();
-              formData.append("message", question);
-              if (activeConversationId) {
-                formData.append("conversationId", activeConversationId);
-              }
-              if (selectedImage) {
-                formData.append("image", selectedImage);
-              }
-              return formData;
-            })(),
-          }
-          : {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: question,
-              conversationId: activeConversationId || undefined,
-            }),
-          }
-      );
+      const res = await fetch(`/api/employee/agents/${agentId}/chat`, isImageAttached ? {
+        method: "POST",
+        body: (() => {
+          const fd = new FormData();
+          fd.append("message", question);
+          if (activeConversationId) fd.append("conversationId", activeConversationId);
+          if (selectedImage) fd.append("image", selectedImage);
+          return fd;
+        })(),
+      } : {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: question, conversationId: activeConversationId || undefined }),
+      });
 
-      const raw = await res.text();
-      let data: AgentResponse;
-      try {
-        data = (raw ? JSON.parse(raw) : {}) as AgentResponse;
-      } catch {
-        throw new Error(raw || "Respuesta inválida del servidor");
-      }
+      const data = (await res.json()) as AgentResponse;
       if (!res.ok && data?.blocked) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            text: "Este agente está deshabilitado temporalmente por el administrador.",
-            meta: data,
-          },
-        ]);
+        setMessages((prev) => [...prev, { role: "assistant", text: "Este agente está deshabilitado temporalmente.", meta: data }]);
         return;
       }
-      if (!res.ok) {
-        throw new Error(data?.message || "No se pudo procesar la solicitud.");
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: data.answer,
-          meta: data,
-        },
-      ]);
-      if (data.conversationId && !activeConversationId) {
-        setActiveConversationId(data.conversationId);
-        setCreatingNewChat(false);
-      }
+      if (!res.ok) throw new Error(data?.message || "Error al procesar.");
+      setMessages((prev) => [...prev, { role: "assistant", text: data.answer, meta: data }]);
+      if (data.conversationId && !activeConversationId) setActiveConversationId(data.conversationId);
       setSelectedImage(null);
-      if (imageInputRef.current) {
-        imageInputRef.current.value = "";
-      }
-      fetchConversations().catch((error) => console.error(error));
-    } catch (error) {
-      console.error("Agent chat failed:", error);
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "No pude procesar tu pregunta en este momento. Intenta nuevamente.";
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: message,
-        },
-      ]);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      fetchConversations().catch(console.error);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: "assistant", text: err instanceof Error && err.message ? err.message : "No pude procesar tu pregunta." }]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ─── Blocked state ────────────────────────────────────────────────────────
   if (!isEnabled) {
-    const whatsappText = encodeURIComponent(
-      `Hola, soy de ${companyName} y quiero desbloquear mi agente IA (${agentName}). ¿Me pueden ayudar por favor?`
-    );
-    const whatsappUrl = `https://wa.me/573246590060?text=${whatsappText}`;
-
+    const whatsappUrl = `https://wa.me/573246590060?text=${encodeURIComponent(`Hola, soy de ${companyName} y quiero desbloquear mi agente IA (${agentName}).`)}`;
     return (
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-[#0066FF] via-[#1d4ed8] to-[#0f172a] text-white shadow-2xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-2 text-xl md:text-2xl font-extrabold">
-              <ShieldCheck className="w-6 h-6" />
-              Agente temporalmente bloqueado
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
-              <Sparkles className="w-3.5 h-3.5" />
-              Soporte prioritario
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="rounded-2xl border border-white/20 bg-white/10 p-4 md:p-5">
-            <p className="text-sm md:text-base leading-relaxed text-blue-50">
-              Tu administrador pausó este agente. Escríbenos y lo desbloqueamos rápido para que
-              tu equipo vuelva a consultar la base de conocimiento sin fricción.
-            </p>
-            <p className="mt-2 text-xs md:text-sm text-blue-100/90">
-              Empresa: <span className="font-semibold">{companyName}</span> · Agente:{" "}
-              <span className="font-semibold">{agentName}</span>
-            </p>
+      <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-[#0066FF] via-[#1d4ed8] to-[#0f172a] p-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md w-full text-center space-y-6">
+          <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-10 h-10 text-white" />
           </div>
-
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-5 py-4 text-base md:text-lg font-extrabold text-white shadow-lg shadow-[#25D366]/30 transition hover:scale-[1.01] hover:bg-[#20ba5a]"
-          >
+          <div className="text-white">
+            <h2 className="text-2xl font-bold mb-2">Agente pausado</h2>
+            <p className="text-blue-100 text-sm">{companyName} · {agentName}</p>
+          </div>
+          <a href={whatsappUrl} target="_blank" rel="noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-[#25D366] text-white font-bold text-base hover:bg-[#20ba5a] transition">
             <MessageCircle className="w-5 h-5" />
-            Escribir a WhatsApp para desbloquear
-            <ArrowRight className="w-5 h-5 transition group-hover:translate-x-0.5" />
+            Escribir por WhatsApp para desbloquear
           </a>
-        </CardContent>
-      </Card>
+        </motion.div>
+      </div>
     );
   }
 
-  return (
-    <div className="h-[calc(100vh-140px)] min-h-0 flex flex-col">
-      <Card className="h-full min-h-0 overflow-hidden grid grid-cols-12 border-0 shadow-2xl bg-background/60 backdrop-blur-xl">
-        {/* Sidebar */}
-        <div className="col-span-3 min-h-0 border-r bg-muted/20 backdrop-blur-md p-4 flex flex-col gap-4">
-          <Button
-            type="button"
-            className="w-full justify-start gap-2 h-11 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md"
-            style={sendButtonStyle}
-            onClick={createNewConversation}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="font-bold">Nuevo chat</span>
-          </Button>
-
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
-            <AnimatePresence mode="popLayout">
-              {conversations.map((conversation) => (
-                <motion.button
-                  layout
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  key={conversation.id}
-                  type="button"
-                  className={[
-                    "w-full text-left rounded-xl border p-3 transition-all duration-200 group relative overflow-hidden",
-                    activeConversationId === conversation.id
-                      ? "bg-background shadow-sm border-primary/20"
-                      : "bg-background/40 hover:bg-background/80 border-transparent hover:border-muted-foreground/10",
-                  ].join(" ")}
-                  style={
-                    activeConversationId === conversation.id
-                      ? { borderColor: `${uiColor}44`, boxShadow: `0 4px 12px ${uiColor}15` }
-                      : undefined
-                  }
-                  onClick={() => setActiveConversationId(conversation.id)}
-                >
-                  <div className="flex flex-col gap-1 relative z-10">
-                    <p className="text-sm font-bold line-clamp-1 group-hover:text-primary transition-colors">
-                      {conversation.title}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground line-clamp-1 opacity-80">
-                      {conversation.lastMessage || "Sin mensajes aún"}
-                    </p>
-                  </div>
-                  {activeConversationId === conversation.id && (
-                    <motion.div
-                      layoutId="active-indicator"
-                      className="absolute left-0 top-0 bottom-0 w-1"
-                      style={{ backgroundColor: uiColor }}
-                    />
-                  )}
-                </motion.button>
-              ))}
-            </AnimatePresence>
-
-            {conversations.length === 0 && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xs text-muted-foreground px-2 py-4 text-center italic"
+  // ─── Welcome screen ────────────────────────────────────────────────────────
+  if (view === "welcome") {
+    return (
+      <div
+        className="relative flex min-h-[calc(100vh-8rem)] rounded-3xl overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${uiColor}06 0%, transparent 55%)` }}
+      >
+        {/* History button — top right floating */}
+        <AnimatePresence>
+          {conversations.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ delay: 0.4 }}
+              className="absolute top-5 right-5 z-10"
+            >
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.04] active:scale-[0.97]"
+                style={{ backgroundColor: uiColor, boxShadow: `0 4px 20px ${uiColor}40` }}
               >
-                Aún no tienes conversaciones guardadas.
-              </motion.p>
-            )}
-          </div>
-        </div>
+                <Clock className="w-4 h-4" />
+                Historial
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-[10px] font-black">
+                  {conversations.length > 9 ? "9+" : conversations.length}
+                </span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Main Chat Area */}
-        <div className="col-span-9 h-full flex flex-col min-h-0 bg-gradient-to-b from-transparent to-muted/5">
-          <CardHeader className="py-4 border-b bg-background/40 backdrop-blur-sm" style={{ borderBottomColor: `${uiColor}22` }}>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl shadow-inner" style={softColor}>
-                  <Bot className="w-6 h-6" style={{ color: uiColor }} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-extrabold tracking-tight">{agentName}</h3>
-                  <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/70">Asistente Inteligente</p>
-                </div>
-              </div>
-              <Badge style={badgeColor} className="text-white border-0 px-3 py-1 shadow-sm font-bold animate-pulse">
-                Activo
-              </Badge>
-            </CardTitle>
-          </CardHeader>
+        {/* Center content */}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center w-full">
+          {/* Bot icon */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="w-24 h-24 rounded-3xl flex items-center justify-center mb-8 shadow-2xl"
+            style={{ backgroundColor: uiColor, ...accentGlow }}
+          >
+            <Bot className="w-12 h-12 text-white" />
+          </motion.div>
 
-          <CardContent className="space-y-4 flex-1 min-h-0 flex flex-col overflow-hidden p-0">
-            <div className="flex-1 overflow-y-auto space-y-6 pt-6 px-6 pb-4 scrollbar-thin">
-              {loadingHistory && (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground animate-in fade-in zoom-in duration-300">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  <p className="text-sm font-medium">Sincronizando historial...</p>
-                </div>
-              )}
-              {!loadingHistory && (
-                <div className="flex flex-col gap-6">
-                  {messages.map((message, idx) => (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ type: "spring", damping: 25, stiffness: 400 }}
-                      key={idx}
-                      className={message.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}
-                    >
-                      <div
-                        className={[
-                          "relative group px-5 py-3.5 max-w-[82%] shadow-sm transition-all duration-300",
-                          message.role === "user"
-                            ? "rounded-2xl rounded-tr-sm text-white font-medium"
-                            : "rounded-2xl rounded-tl-sm bg-background border border-muted",
-                        ].join(" ")}
-                        style={message.role === "user"
-                          ? { backgroundColor: uiColor, boxShadow: `0 8px 20px ${uiColor}25` }
-                          : { borderLeftColor: uiColor, borderLeftWidth: "4px" }
-                        }
-                      >
-                        <div className="text-[14.5px] leading-relaxed select-text">{message.text}</div>
+          {/* Title */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-3 mb-10"
+          >
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight">
+              Hola, soy{" "}
+              <span style={{ color: uiColor }}>{agentName}</span>
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-md">
+              Tu asistente inteligente con acceso a toda la documentación interna de{" "}
+              <span className="font-semibold text-foreground">{companyName}</span>.
+            </p>
+          </motion.div>
 
-                        {/* Status detail for assistant */}
-                        {message.role === "assistant" && message.meta && (
-                          <div className="mt-4 pt-3 border-t border-muted/50 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                {message.meta.mode === "image" && <Sparkles className="w-3 h-3 text-amber-500" />}
-                                {getModeLabel(message.meta.mode)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: uiColor }}>
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>{(message.meta.confidence * 100).toFixed(1)}% confianza</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Reference system redesign */}
-                      <AnimatePresence>
-                        {message.role === "assistant" && message.meta && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            className="w-full mt-3 space-y-3"
-                          >
-                            {message.meta.mode === "ambiguous" && (
-                              <motion.div
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200"
-                              >
-                                <AlertTriangle className="w-3.5 h-3.5" />
-                                Fuentes similares detectadas
-                              </motion.div>
-                            )}
-
-                            {/* Alternatives for ambiguous mode */}
-                            {message.meta.mode === "ambiguous" && !!message.meta.alternatives?.length && (
-                              <div className="grid grid-cols-2 gap-3 mt-1">
-                                {message.meta.alternatives.map((option, optIdx) => (
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: optIdx * 0.1 }}
-                                    key={option.chunkId}
-                                    className="rounded-xl border bg-background/50 backdrop-blur-sm p-3 shadow-sm hover:shadow-md transition-all border-amber-100 hover:border-amber-300"
-                                  >
-                                    <p className="font-bold text-xs mb-1 line-clamp-1">{option.title}</p>
-                                    <p className="text-[11px] text-muted-foreground line-clamp-2 mb-3 leading-snug">
-                                      {option.summary}
-                                    </p>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                                        {(option.score * 100).toFixed(1)}%
-                                      </span>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-3 text-[10px] font-bold border-amber-200 hover:bg-amber-50"
-                                        disabled={resolvingChunkId === option.chunkId}
-                                        onClick={() => resolveAmbiguity(idx, option, message.meta)}
-                                      >
-                                        {resolvingChunkId === option.chunkId ? "..." : "Seleccionar"}
-                                      </Button>
-                                    </div>
-                                  </motion.div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Citations / Evidence cards */}
-                            {message.meta.mode !== "image" && message.meta.citations?.length > 0 && (
-                              <div className="flex flex-col gap-2 max-w-[90%]">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Fuentes de conocimiento</p>
-                                {message.meta.citations.map((citation, citIdx) => (
-                                  <motion.div
-                                    initial={{ opacity: 0, x: -15 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: citIdx * 0.1 }}
-                                    key={`${citation.documentId}-${citation.score}`}
-                                    className="group relative flex gap-3 items-start p-3 rounded-xl border bg-background hover:bg-muted/5 transition-all duration-300 shadow-sm hover:shadow-md"
-                                    style={{ borderLeft: `3px solid ${uiColor}` }}
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between gap-4 mb-1">
-                                        <p className="font-bold text-[12px] truncate">{citation.title}</p>
-                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted">
-                                          Rel: {(citation.score * 100).toFixed(0)}%
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed italic opacity-85">
-                                        "{citation.excerpt}"
-                                      </p>
-                                      {citation.fileUrl && (
-                                        <button
-                                          type="button"
-                                          onClick={() => openSourcePreview(citation.documentId, citation.excerpt, citation.chunkId)}
-                                          className="mt-2.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider group-hover:translate-x-1 transition-transform"
-                                          style={{ color: uiColor }}
-                                        >
-                                          <ArrowRight className="w-3 h-3" />
-                                          Ver evidencia destacada
-                                        </button>
-                                      )}
-                                    </div>
-                                  </motion.div>
-                                ))}
-                              </div>
-                            )}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ))}
-                  {loading && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-start gap-3"
-                    >
-                      <div className="p-2 rounded-xl bg-muted/50">
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      </div>
-                      <div className="bg-muted/30 px-4 py-2 rounded-2xl animate-pulse">
-                        <span className="text-sm font-medium text-muted-foreground italic">Pensando...</span>
-                      </div>
-                    </motion.div>
-                  )}
+          {/* Input + suggestions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="w-full max-w-2xl"
+          >
+            <form onSubmit={submit}
+              className="flex items-center gap-3 p-2 rounded-2xl border bg-background shadow-xl transition-all focus-within:shadow-2xl"
+              style={{ ...accentBorder, ...accentGlow }}
+            >
+              <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(e) => setSelectedImage(e.target.files?.[0] || null)} />
+              <Button type="button" variant="ghost" size="icon" className="h-11 w-11 rounded-xl shrink-0"
+                onClick={() => imageInputRef.current?.click()}>
+                <Paperclip className="w-5 h-5 opacity-50" />
+              </Button>
+              <Input
+                className="border-0 focus-visible:ring-0 shadow-none text-base bg-transparent h-11"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  const img = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+                  if (!img) return;
+                  const file = img.getAsFile();
+                  if (!file) return;
+                  e.preventDefault();
+                  attachPastedImage(file);
+                }}
+                placeholder="¿En qué te puedo ayudar hoy?"
+              />
+              {selectedImage && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-bold shrink-0">
+                  <Plus className="w-3 h-3 rotate-45" />
+                  <span className="max-w-[80px] truncate">{selectedImage.name}</span>
+                  <button type="button" onClick={() => { setSelectedImage(null); if (imageInputRef.current) imageInputRef.current.value = ""; }}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               )}
-            </div>
+              <Button type="submit" size="icon" className="h-11 w-11 rounded-xl shrink-0 shadow-md"
+                disabled={!input.trim() && !selectedImage} style={sendButtonStyle}>
+                <Send className="w-4 h-4 ml-0.5" />
+              </Button>
+            </form>
 
-            <div className="px-6 pb-6 pt-2">
-              <form className="relative flex items-end gap-2 p-2 rounded-2xl border bg-background/80 focus-within:ring-2 focus-within:ring-offset-1 shadow-lg transition-all"
-                style={{ borderColor: `${uiColor}44`, "--tw-ring-color": uiColor } as any}
-                onSubmit={submit}>
-
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    setSelectedImage(file || null);
-                  }}
-                />
-
-                <Button
+            {/* Suggested questions */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.35 }}
+              className="flex flex-wrap justify-center gap-2 mt-5"
+            >
+              {SUGGESTED_QUESTIONS.map((q) => (
+                <button
+                  key={q}
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-xl hover:bg-muted"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={loading}
+                  onClick={() => submit(null, q)}
+                  className="px-4 py-2 rounded-full border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 hover:bg-muted/50 transition-all"
                 >
-                  <Paperclip className="w-5 h-5 opacity-70" />
-                </Button>
+                  {q}
+                </button>
+              ))}
+            </motion.div>
+          </motion.div>
 
-                <div className="flex-1 flex flex-col gap-2">
-                  <AnimatePresence>
-                    {selectedImage && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                        className="flex items-center gap-2 p-2 rounded-xl bg-muted/60 border border-muted"
-                      >
-                        <div className="p-1.5 rounded-lg bg-background shadow-xs">
-                          <Plus className="w-3 h-3 rotate-45" style={{ color: uiColor }} />
-                        </div>
-                        <span className="text-[11px] font-bold truncate max-w-[140px] uppercase tracking-tighter">
-                          {selectedImage.name}
-                        </span>
-                        <button
-                          type="button"
-                          className="ml-auto p-1 hover:bg-muted-foreground/10 rounded-full"
-                          onClick={() => {
-                            setSelectedImage(null);
-                            if (imageInputRef.current) imageInputRef.current.value = "";
-                          }}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <Input
-                    className="border-0 focus-visible:ring-0 shadow-none px-2 h-11 text-sm bg-transparent"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onPaste={(e) => {
-                      const items = Array.from(e.clipboardData.items || []);
-                      const imageItem = items.find((item) => item.type.startsWith("image/"));
-                      if (!imageItem) return;
-                      const file = imageItem.getAsFile();
-                      if (!file) return;
-                      e.preventDefault();
-                      attachPastedImage(file);
-                    }}
-                    placeholder="Escribe tu mensaje aquí..."
-                    disabled={loading}
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-xl shadow-md transition-all active:scale-95"
-                  disabled={loading || (!input.trim() && !selectedImage)}
-                  style={sendButtonStyle}
-                >
-                  <Send className="w-4 h-4 ml-0.5" />
-                </Button>
-              </form>
-            </div>
-          </CardContent>
-        </div>
-      </Card>
-      <AnimatePresence>
-        {sourcePreviewOpen && (
+          {/* Bottom label */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
+            transition={{ delay: 0.5 }}
+            className="mt-10 flex items-center gap-2 text-xs text-muted-foreground/40"
           >
-            <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.95, rotateX: -10 }}
-              animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95, rotateX: 5 }}
-              transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl border bg-background shadow-2xl flex flex-col"
-              style={{ borderColor: `${uiColor}33` }}
-            >
-              <div className="flex items-center justify-between border-b px-6 py-4 bg-muted/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-background shadow-sm">
-                    <ShieldCheck className="w-5 h-5" style={{ color: uiColor }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-black tracking-tight">
-                      {sourcePreview?.title || "Evidencia referenciada"}
-                    </p>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60">
-                      Fuente de conocimiento verificada
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full hover:bg-muted"
-                  onClick={() => setSourcePreviewOpen(false)}
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-                {sourcePreviewLoading && (
-                  <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: uiColor }} />
-                    <p className="text-sm font-bold italic">Buscando en la base de datos...</p>
-                  </div>
-                )}
-
-                {!sourcePreviewLoading && sourcePreview && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="rounded-2xl border bg-muted/30 p-4 border-dashed" style={{ borderColor: `${uiColor}44` }}>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Fragmento solicitado</p>
-                      <p className="text-xs font-bold leading-relaxed">"{sourcePreviewExcerpt}"</p>
-                    </div>
-
-                    <div className="relative">
-                      <div className="absolute -left-4 top-0 bottom-0 w-1 rounded-full opacity-30" style={{ backgroundColor: uiColor }} />
-                      <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-8 text-foreground/90 pl-2">
-                        {(() => {
-                          const targetExcerpt = sourcePreview.chunkContent || sourcePreviewExcerpt;
-                          const previewText = getHighlightedPreviewText(
-                            sourcePreview.rawText || "",
-                            targetExcerpt
-                          );
-                          if (!targetExcerpt.trim()) return previewText;
-
-                          const parts = previewText.split(targetExcerpt);
-                          if (parts.length > 1) {
-                            return parts.reduce<ReactNode[]>((acc, part, index) => {
-                              if (index > 0) {
-                                acc.push(
-                                  <mark key={`mark-${index}`} className="rounded px-1 font-bold shadow-sm" style={{ backgroundColor: `${uiColor}33`, color: "inherit", borderBottom: `2px solid ${uiColor}` }}>
-                                    {targetExcerpt}
-                                  </mark>
-                                );
-                              }
-                              acc.push(<span key={`part-${index}`}>{part}</span>);
-                              return acc;
-                            }, []);
-                          } else {
-                            // Fallback
-                            const normFull = previewText.toLowerCase();
-                            const normTarget = targetExcerpt.toLowerCase();
-                            const idx = normFull.indexOf(normTarget.slice(0, Math.min(100, normTarget.length)));
-                            if (idx >= 0) {
-                              const actualTarget = previewText.slice(idx, idx + targetExcerpt.length);
-                              const before = previewText.slice(0, idx);
-                              const after = previewText.slice(idx + targetExcerpt.length);
-                              return [
-                                <span key="part-0">{before}</span>,
-                                <mark key="mark-1" className="rounded px-1 font-bold shadow-sm" style={{ backgroundColor: `${uiColor}33`, color: "inherit", borderBottom: `2px solid ${uiColor}` }}>{actualTarget}</mark>,
-                                <span key="part-1">{after}</span>
-                              ];
-                            }
-                            return previewText;
-                          }
-                        })()}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-muted/10 border-t flex justify-end">
-                <Button
-                  style={sendButtonStyle}
-                  className="rounded-xl px-6 font-bold shadow-lg"
-                  onClick={() => setSourcePreviewOpen(false)}
-                >
-                  Entendido
-                </Button>
-              </div>
-            </motion.div>
+            <Zap className="w-3 h-3" />
+            Respuestas basadas en los documentos internos de {companyName}
           </motion.div>
+        </div>
+
+        {/* Conversation drawer */}
+        <ConversationDrawer
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={openConversation}
+          onNew={startNewChat}
+          uiColor={uiColor}
+        />
+      </div>
+    );
+  }
+
+  // ─── Chat screen ──────────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col rounded-3xl border overflow-hidden" style={{ height: "calc(100vh - 8rem)", ...accentBorder }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm shrink-0" style={accentBorder}>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => setView("welcome")}
+            className="p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: uiColor }}>
+            <Bot className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-sm leading-none">{agentName}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{companyName}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className="text-white border-0 text-[10px] px-2" style={{ backgroundColor: uiColor }}>
+            Activo
+          </Badge>
+          <button type="button" onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground relative">
+            <Menu className="w-5 h-5" />
+            {conversations.length > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: uiColor }} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+        {loadingHistory ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: uiColor }} />
+            <p className="text-sm font-medium">Cargando conversación...</p>
+          </div>
+        ) : (
+          <>
+            {messages.map((message, idx) => (
+              <MessageBubble
+                key={idx}
+                message={message}
+                idx={idx}
+                messages={messages}
+                uiColor={uiColor}
+                resolvingChunkId={resolvingChunkId}
+                onResolveAmbiguity={resolveAmbiguity}
+                onOpenSource={openSourcePreview}
+              />
+            ))}
+            {loading && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-3">
+                <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: uiColor }}>
+                  <Bot className="w-4 h-4 text-white" />
+                </div>
+                <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-muted/60 border border-muted flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:0ms]" style={{ backgroundColor: uiColor }} />
+                  <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:150ms]" style={{ backgroundColor: uiColor }} />
+                  <span className="w-2 h-2 rounded-full animate-bounce [animation-delay:300ms]" style={{ backgroundColor: uiColor }} />
+                </div>
+              </motion.div>
+            )}
+            <div ref={messagesEndRef} />
+          </>
         )}
-      </AnimatePresence>
+      </div>
+
+      {/* Input */}
+      <div className="px-4 pb-5 pt-3 shrink-0 border-t bg-background/80 backdrop-blur-sm" style={accentBorder}>
+        <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+          onChange={(e) => setSelectedImage(e.target.files?.[0] || null)} />
+        <form onSubmit={submit}
+          className="flex items-end gap-2 p-2 rounded-2xl border bg-background shadow-lg focus-within:shadow-xl transition-all"
+          style={accentBorder}
+        >
+          <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0"
+            onClick={() => imageInputRef.current?.click()} disabled={loading}>
+            <Paperclip className="w-4 h-4 opacity-60" />
+          </Button>
+          <div className="flex-1 flex flex-col gap-1.5">
+            <AnimatePresence>
+              {selectedImage && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-muted/60 text-xs font-bold">
+                  <Plus className="w-3 h-3 rotate-45 shrink-0" style={{ color: uiColor }} />
+                  <span className="truncate max-w-[140px]">{selectedImage.name}</span>
+                  <button type="button" className="ml-auto" onClick={() => { setSelectedImage(null); if (imageInputRef.current) imageInputRef.current.value = ""; }}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <Input
+              className="border-0 focus-visible:ring-0 shadow-none h-10 text-sm bg-transparent px-1"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onPaste={(e) => {
+                const img = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
+                if (!img) return;
+                const file = img.getAsFile();
+                if (!file) return;
+                e.preventDefault();
+                attachPastedImage(file);
+              }}
+              placeholder="Escribe tu mensaje..."
+              disabled={loading}
+            />
+          </div>
+          <Button type="submit" size="icon" className="h-10 w-10 rounded-xl shrink-0 shadow-md transition-all active:scale-95"
+            disabled={loading || (!input.trim() && !selectedImage)} style={sendButtonStyle}>
+            <Send className="w-4 h-4 ml-0.5" />
+          </Button>
+        </form>
+      </div>
+
+      {/* Conversation drawer */}
+      <ConversationDrawer
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        conversations={conversations}
+        activeId={activeConversationId}
+        onSelect={openConversation}
+        onNew={startNewChat}
+        uiColor={uiColor}
+      />
+
+      {/* Source preview modal */}
+      <SourcePreviewModal
+        open={sourcePreviewOpen}
+        onClose={() => setSourcePreviewOpen(false)}
+        loading={sourcePreviewLoading}
+        sourcePreview={sourcePreview}
+        sourcePreviewExcerpt={sourcePreviewExcerpt}
+        uiColor={uiColor}
+      />
     </div>
   );
 }
 
+// ─── Conversation Drawer ───────────────────────────────────────────────────
+function ConversationDrawer({
+  open, onClose, conversations, activeId, onSelect, onNew, uiColor,
+}: {
+  open: boolean;
+  onClose: () => void;
+  conversations: ConversationSummary[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onNew: () => void;
+  uiColor: string;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+            onClick={onClose} />
+          <motion.div
+            initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            className="fixed right-0 top-0 bottom-0 z-50 w-80 bg-background border-l shadow-2xl flex flex-col"
+            style={{ borderColor: `${uiColor}22` }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: `${uiColor}22` }}>
+              <h3 className="font-bold text-sm">Conversaciones</h3>
+              <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 pt-3">
+              <button type="button" onClick={onNew}
+                className="w-full flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{ backgroundColor: uiColor }}>
+                <Plus className="w-4 h-4" />
+                Nuevo chat
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {conversations.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-8 italic">Sin conversaciones aún.</p>
+              ) : (
+                conversations.map((conv) => (
+                  <button key={conv.id} type="button" onClick={() => onSelect(conv.id)}
+                    className={["w-full text-left px-4 py-3 rounded-xl transition-all border group", activeId === conv.id ? "bg-muted border-border" : "border-transparent hover:bg-muted/50 hover:border-border/50"].join(" ")}
+                    style={activeId === conv.id ? { borderColor: `${uiColor}44` } : undefined}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold line-clamp-1">{conv.title}</p>
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{conv.lastMessage || "Sin mensajes"}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Message Bubble ────────────────────────────────────────────────────────
+function MessageBubble({
+  message, idx, messages, uiColor, resolvingChunkId, onResolveAmbiguity, onOpenSource,
+}: {
+  message: Message;
+  idx: number;
+  messages: Message[];
+  uiColor: string;
+  resolvingChunkId: string | null;
+  onResolveAmbiguity: (idx: number, option: NonNullable<AgentResponse["alternatives"]>[number], meta?: AgentResponse) => void;
+  onOpenSource: (documentId: string, excerpt: string, chunkId?: string) => void;
+}) {
+  const isUser = message.role === "user";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", damping: 28, stiffness: 380 }}
+      className={["flex gap-3", isUser ? "justify-end" : "justify-start items-end"].join(" ")}
+    >
+      {!isUser && (
+        <div className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center shadow-sm mb-0.5" style={{ backgroundColor: uiColor }}>
+          <Bot className="w-4 h-4 text-white" />
+        </div>
+      )}
+      <div className={["flex flex-col max-w-[78%]", isUser ? "items-end" : "items-start"].join(" ")}>
+        <div
+          className={["px-4 py-3 shadow-sm text-[14px] leading-relaxed select-text", isUser ? "rounded-2xl rounded-tr-sm text-white font-medium" : "rounded-2xl rounded-tl-sm bg-muted/50 border"].join(" ")}
+          style={isUser
+            ? { backgroundColor: uiColor, boxShadow: `0 4px 16px ${uiColor}30` }
+            : { borderLeftColor: uiColor, borderLeftWidth: "3px" }
+          }
+        >
+          {message.text}
+        </div>
+
+        {/* Meta bar */}
+        {!isUser && message.meta && (
+          <div className="flex items-center gap-2 mt-2 ml-1">
+            <span className={[
+              "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+              message.meta.mode === "fallback" ? "bg-muted text-muted-foreground" :
+              message.meta.mode === "ambiguous" ? "bg-amber-100 text-amber-700" :
+              "bg-emerald-50 text-emerald-700",
+            ].join(" ")}>
+              {getModeLabel(message.meta.mode)}
+            </span>
+            <span className="text-[10px] font-bold flex items-center gap-1" style={{ color: uiColor }}>
+              <ShieldCheck className="w-3 h-3" />
+              {(message.meta.confidence * 100).toFixed(0)}%
+            </span>
+          </div>
+        )}
+
+        {/* Multi-source contradiction indicator */}
+        {!isUser && message.meta?.mode === "grounded" && (() => {
+          const uniqueDocs = new Set(message.meta!.citations.map((c) => c.documentId));
+          if (uniqueDocs.size < 2) return null;
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="mt-2 ml-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-orange-700 font-medium">
+                Información cruzada de {uniqueDocs.size} documentos — verifica qué versión aplica.
+              </p>
+            </motion.div>
+          );
+        })()}
+
+        {/* Ambiguity resolution */}
+        {!isUser && message.meta?.mode === "ambiguous" && !!message.meta.alternatives?.length && (() => {
+          const alreadyResolved = idx < messages.length - 1 && messages.slice(idx + 1).some((m) => m.role === "assistant" && m.meta?.mode === "grounded");
+          return (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-3 space-y-2 w-full">
+              <div className={["rounded-xl border p-3", alreadyResolved ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"].join(" ")}>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className={["w-3.5 h-3.5", alreadyResolved ? "text-emerald-600" : "text-amber-600"].join(" ")} />
+                  <p className={["text-xs font-bold", alreadyResolved ? "text-emerald-700" : "text-amber-700"].join(" ")}>
+                    {alreadyResolved ? "Ambigüedad resuelta" : "Encontré información en dos fuentes — ¿cuál aplica?"}
+                  </p>
+                </div>
+              </div>
+              <div className={["grid grid-cols-2 gap-2", alreadyResolved ? "opacity-50 pointer-events-none" : ""].join(" ")}>
+                {message.meta!.alternatives!.map((option, optIdx) => (
+                  <div key={option.chunkId} className="rounded-xl border bg-background p-3 space-y-2 hover:shadow-md transition-all border-amber-100">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">Fuente {optIdx + 1}</span>
+                    <p className="font-bold text-xs line-clamp-1">{option.title}</p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-3 leading-snug">{option.summary}</p>
+                    <Button size="sm" variant="outline" className="w-full h-7 text-[11px] font-bold border-amber-200 hover:bg-amber-50"
+                      disabled={!!resolvingChunkId}
+                      onClick={() => onResolveAmbiguity(idx, option, message.meta)}>
+                      {resolvingChunkId === option.chunkId ? <><Loader2 className="w-3 h-3 animate-spin mr-1" />Procesando...</> : "Usar esta fuente"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })()}
+
+        {/* Citations */}
+        {!isUser && message.meta?.mode !== "image" && (message.meta?.citations?.length ?? 0) > 0 && (
+          <div className="mt-3 space-y-1.5 w-full">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 ml-0.5">Fuentes</p>
+            {message.meta!.citations.map((citation, citIdx) => (
+              <motion.div key={`${citation.documentId}-${citIdx}`}
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: citIdx * 0.06 }}
+                className="flex items-start gap-3 px-3 py-2.5 rounded-xl border bg-background hover:bg-muted/20 transition-all"
+                style={{ borderLeft: `3px solid ${uiColor}` }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className="font-bold text-[12px] truncate">{citation.title}</p>
+                    <span className="text-[10px] font-bold shrink-0 text-muted-foreground">{(citation.score * 100).toFixed(0)}%</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 italic opacity-80">"{citation.excerpt}"</p>
+                  {citation.fileUrl && (
+                    <button type="button"
+                      onClick={() => onOpenSource(citation.documentId, citation.excerpt, citation.chunkId)}
+                      className="mt-1.5 flex items-center gap-1 text-[10px] font-black uppercase tracking-wider hover:opacity-80 transition-opacity"
+                      style={{ color: uiColor }}>
+                      <ArrowRight className="w-3 h-3" />
+                      Ver evidencia
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Source Preview Modal ──────────────────────────────────────────────────
+function SourcePreviewModal({
+  open, onClose, loading, sourcePreview, sourcePreviewExcerpt, uiColor,
+}: {
+  open: boolean;
+  onClose: () => void;
+  loading: boolean;
+  sourcePreview: SourcePreviewPayload | null;
+  sourcePreviewExcerpt: string;
+  uiColor: string;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[120] bg-black/50 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.97 }}
+            transition={{ type: "spring", damping: 22, stiffness: 320 }}
+            className="relative w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border bg-background shadow-2xl flex flex-col"
+            style={{ borderColor: `${uiColor}33` }}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/10" style={{ borderColor: `${uiColor}22` }}>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl" style={{ backgroundColor: `${uiColor}15` }}>
+                  <ShieldCheck className="w-4 h-4" style={{ color: uiColor }} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">{sourcePreview?.title || "Evidencia"}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Fuente verificada</p>
+                </div>
+              </div>
+              <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" style={{ color: uiColor }} />
+                  <p className="text-sm font-medium">Buscando fragmento...</p>
+                </div>
+              ) : sourcePreview && (
+                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                  <div className="rounded-xl border border-dashed p-4" style={{ borderColor: `${uiColor}44`, background: `${uiColor}06` }}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">Fragmento referenciado</p>
+                    <p className="text-xs font-semibold leading-relaxed whitespace-pre-wrap line-clamp-6">&ldquo;{sourcePreviewExcerpt}&rdquo;</p>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute -left-3 top-0 bottom-0 w-0.5 rounded-full opacity-25" style={{ backgroundColor: uiColor }} />
+                    <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-foreground/85 pl-2">
+                      {(() => {
+                        const raw = sourcePreview.rawText || "";
+                        const excerpt = sourcePreviewExcerpt.trim();
+                        if (!excerpt || !raw.trim()) return raw.slice(0, 1800);
+                        const match = findMatchInOriginal(raw, excerpt);
+                        if (!match) return raw.slice(0, 1800);
+                        const viewStart = Math.max(0, match.start - 600);
+                        const viewEnd = Math.min(raw.length, match.end + 600);
+                        return [
+                          viewStart > 0 && <span key="e0" className="text-muted-foreground/40">…{"\n"}</span>,
+                          <span key="b">{raw.slice(viewStart, match.start)}</span>,
+                          <mark key="h" className="rounded-sm px-0.5 font-semibold" style={{ backgroundColor: `${uiColor}28`, borderBottom: `2px solid ${uiColor}` }}>
+                            {raw.slice(match.start, match.end)}
+                          </mark>,
+                          <span key="a">{raw.slice(match.end, viewEnd)}</span>,
+                          viewEnd < raw.length && <span key="e1" className="text-muted-foreground/40">{"\n"}…</span>,
+                        ].filter(Boolean) as ReactNode[];
+                      })()}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t bg-muted/5 flex justify-end" style={{ borderColor: `${uiColor}22` }}>
+              <Button onClick={onClose} className="rounded-xl px-6 font-bold" style={{ backgroundColor: uiColor, color: "#fff" }}>
+                Entendido
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
