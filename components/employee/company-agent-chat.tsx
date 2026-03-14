@@ -24,8 +24,11 @@ import {
   Menu,
   Clock,
   ChevronRight,
+  ThumbsUp,
+  ThumbsDown,
   Zap,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +62,7 @@ interface AgentResponse {
     score: number;
   }[];
   requiresSourceSelection?: boolean;
+  messageId?: string;
   ambiguityEventId?: string;
   blocked?: boolean;
   conversationId?: string;
@@ -83,10 +87,10 @@ interface SourcePreviewPayload {
   id: string;
   title: string;
   rawText: string;
+  chunkContent?: string;
   mimeType?: string | null;
   filePath?: string | null;
   updatedAt: string;
-  chunkContent?: string;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -561,6 +565,7 @@ export function CompanyAgentChat({
                 idx={idx}
                 messages={messages}
                 uiColor={uiColor}
+                agentId={agentId}
                 resolvingChunkId={resolvingChunkId}
                 onResolveAmbiguity={resolveAmbiguity}
                 onOpenSource={openSourcePreview}
@@ -721,17 +726,39 @@ function ConversationDrawer({
 
 // ─── Message Bubble ────────────────────────────────────────────────────────
 function MessageBubble({
-  message, idx, messages, uiColor, resolvingChunkId, onResolveAmbiguity, onOpenSource,
+  message, idx, messages, uiColor, agentId, resolvingChunkId, onResolveAmbiguity, onOpenSource,
 }: {
   message: Message;
   idx: number;
   messages: Message[];
   uiColor: string;
+  agentId: string;
   resolvingChunkId: string | null;
   onResolveAmbiguity: (idx: number, option: NonNullable<AgentResponse["alternatives"]>[number], meta?: AgentResponse) => void;
   onOpenSource: (documentId: string, excerpt: string, chunkId?: string) => void;
 }) {
   const isUser = message.role === "user";
+  const [feedbackState, setFeedbackState] = useState<"none" | "helpful" | "not_helpful">("none");
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [showCommentBox, setShowCommentBox] = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+
+  const submitFeedback = async (helpful: boolean, comment?: string) => {
+    const msgId = message.meta?.messageId;
+    if (!msgId) return;
+    setFeedbackSaving(true);
+    try {
+      await fetch(`/api/employee/agents/${agentId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msgId, helpful, comment: comment || undefined }),
+      });
+      setFeedbackState(helpful ? "helpful" : "not_helpful");
+      setShowCommentBox(false);
+    } catch { /* silent */ } finally {
+      setFeedbackSaving(false);
+    }
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -752,7 +779,25 @@ function MessageBubble({
             : { borderLeftColor: uiColor, borderLeftWidth: "3px" }
           }
         >
-          {message.text}
+          {isUser ? message.text : (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                em: ({ children }) => <em className="italic">{children}</em>,
+                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                h1: ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-sm font-bold mb-1.5">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                code: ({ children }) => <code className="bg-black/10 rounded px-1 py-0.5 text-xs font-mono">{children}</code>,
+                a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80">{children}</a>,
+              }}
+            >
+              {message.text}
+            </ReactMarkdown>
+          )}
         </div>
 
         {/* Meta bar */}
@@ -849,6 +894,59 @@ function MessageBubble({
             ))}
           </div>
         )}
+
+        {/* Feedback */}
+        {!isUser && message.meta?.messageId && (
+          <div className="mt-2 ml-0.5">
+            {feedbackState === "none" ? (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground/60 mr-1">¿Te sirvió?</span>
+                <button
+                  type="button"
+                  disabled={feedbackSaving}
+                  onClick={() => submitFeedback(true)}
+                  className="p-1.5 rounded-lg hover:bg-emerald-50 text-muted-foreground/50 hover:text-emerald-600 transition-colors"
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={feedbackSaving}
+                  onClick={() => setShowCommentBox(true)}
+                  className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground/50 hover:text-red-500 transition-colors"
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <p className={`text-[10px] font-medium ${feedbackState === "helpful" ? "text-emerald-600" : "text-red-500"}`}>
+                {feedbackState === "helpful" ? "Gracias por tu feedback" : "Feedback registrado — lo revisaremos"}
+              </p>
+            )}
+            {showCommentBox && feedbackState === "none" && (
+              <div className="mt-1.5 flex gap-1.5 items-end">
+                <input
+                  type="text"
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="¿Qué faltó o estuvo mal?"
+                  maxLength={500}
+                  className="flex-1 text-xs border rounded-lg px-2.5 py-1.5 bg-background focus:outline-none focus:ring-1"
+                  style={{ focusRingColor: uiColor } as React.CSSProperties}
+                />
+                <button
+                  type="button"
+                  disabled={feedbackSaving}
+                  onClick={() => submitFeedback(false, feedbackComment)}
+                  className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-white shrink-0"
+                  style={{ backgroundColor: uiColor }}
+                >
+                  {feedbackSaving ? "..." : "Enviar"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -909,12 +1007,29 @@ function SourcePreviewModal({
                     <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-foreground/85 pl-2">
                       {(() => {
                         const raw = sourcePreview.rawText || "";
+                        const fullChunk = (sourcePreview.chunkContent || "").trim();
                         const excerpt = sourcePreviewExcerpt.trim();
-                        if (!excerpt || !raw.trim()) return raw.slice(0, 1800);
-                        const match = findMatchInOriginal(raw, excerpt);
-                        if (!match) return raw.slice(0, 1800);
-                        const viewStart = Math.max(0, match.start - 600);
-                        const viewEnd = Math.min(raw.length, match.end + 600);
+                        if (!raw.trim()) return raw.slice(0, 2400);
+
+                        let match: { start: number; end: number } | null = null;
+
+                        if (excerpt) {
+                          match = findMatchInOriginal(raw, excerpt);
+                        }
+
+                        if (!match && fullChunk) {
+                          const chunkMatch = findMatchInOriginal(raw, fullChunk);
+                          if (chunkMatch) {
+                            match = {
+                              start: chunkMatch.start,
+                              end: Math.min(chunkMatch.start + 350, chunkMatch.end),
+                            };
+                          }
+                        }
+
+                        if (!match) return raw.slice(0, 2400);
+                        const viewStart = Math.max(0, match.start - 400);
+                        const viewEnd = Math.min(raw.length, match.end + 400);
                         return [
                           viewStart > 0 && <span key="e0" className="text-muted-foreground/40">…{"\n"}</span>,
                           <span key="b">{raw.slice(viewStart, match.start)}</span>,

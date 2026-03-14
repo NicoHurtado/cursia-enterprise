@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { extractTextFromFile } from "@/lib/agents/document-parser";
 import { ingestAgentSource } from "@/lib/agents/ingestion";
+import { evaluateDocumentQuality } from "@/lib/agents/document-quality";
 
 async function getOrCreateAgent(companyId: string, companyName: string) {
   return prisma.companyAgent.upsert({
@@ -111,16 +112,36 @@ export async function POST(
       await writeFile(filePath, fileBuffer);
 
       const rawText = await extractTextFromFile(file);
-      const source = await ingestAgentSource({
-        agentId: agent.id,
-        title: customTitle || file.name,
-        sourceType: "FILE",
-        rawText,
-        mimeType: file.type || undefined,
-        filePath: `/uploads/agent-documents/${filename}`,
+      const docTitle = customTitle || file.name;
+
+      const [source, qualityResult] = await Promise.all([
+        ingestAgentSource({
+          agentId: agent.id,
+          title: docTitle,
+          sourceType: "FILE",
+          rawText,
+          mimeType: file.type || undefined,
+          filePath: `/uploads/agent-documents/${filename}`,
+        }),
+        evaluateDocumentQuality(docTitle, rawText).catch(() => null),
+      ]);
+
+      if (qualityResult) {
+        await prisma.agentSourceDocument.update({
+          where: { id: source.id },
+          data: {
+            qualityScore: qualityResult.score,
+            qualityAnalysis: JSON.parse(JSON.stringify(qualityResult.analysis)),
+          },
+        });
+      }
+
+      const fullSource = await prisma.agentSourceDocument.findUnique({
+        where: { id: source.id },
+        include: { _count: { select: { chunks: true } } },
       });
 
-      return NextResponse.json(source, { status: 201 });
+      return NextResponse.json(fullSource, { status: 201 });
     }
 
     return new NextResponse("Solo se permite carga de documentos e imágenes (PDF, DOCX, TXT, PNG, JPG, JPEG, WEBP).", {

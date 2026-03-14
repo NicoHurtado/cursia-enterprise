@@ -11,6 +11,7 @@ import {
   buildImageKnowledgeText,
   isSupportedImageMimeType,
 } from "@/lib/agents/image-understanding";
+import { rerankChunksWithLLM } from "@/lib/agents/reranking";
 import { recordQuestionEvent } from "@/lib/agents/question-insights";
 
 const chatSchema = z.object({
@@ -231,31 +232,27 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       return NextResponse.json({ ...payload, conversationId: conversation.id });
     }
 
-    // Load recent conversation history for context
     const recentMessages = conversation
       ? await prisma.agentMessage.findMany({
           where: { conversationId: conversation.id },
           orderBy: { createdAt: "desc" },
-          take: 6,
+          take: 10,
           select: { role: true, content: true },
         })
       : [];
-    const historyContext = recentMessages
-      .reverse()
-      .map((m) => `${m.role === "USER" ? "Usuario" : "Asistente"}: ${m.content.slice(0, 300)}`)
+    const orderedHistory = recentMessages.reverse();
+    const historyContext = orderedHistory
+      .map((m) => `${m.role === "USER" ? "Usuario" : "Asistente"}: ${m.content.slice(0, 500)}`)
       .join("\n");
 
-    // If the current message is short/vague, augment the retrieval query
-    // with the last user message to maintain topic continuity
     const messageWords = message.trim().split(/\s+/).length;
-    const isFollowUp = messageWords <= 6;
-    const lastUserMessage = recentMessages
-      .slice()
+    const isFollowUp = messageWords <= 12;
+    const lastUserMessage = [...orderedHistory]
       .reverse()
-      .find((m) => m.role === "USER");
+      .find((m) => m.role === "USER" && m.content !== message);
     const enrichedMessage =
-      isFollowUp && lastUserMessage && lastUserMessage.content !== message
-        ? `${lastUserMessage.content.slice(0, 200)} ${message}`
+      isFollowUp && lastUserMessage
+        ? `${lastUserMessage.content.slice(0, 250)} ${message}`
         : message;
 
     const retrievalQuery = hasImageContext
@@ -272,7 +269,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       },
       include: {
         document: {
-          select: { id: true, title: true, filePath: true },
+          select: { id: true, title: true, filePath: true, trackAccess: true },
         },
       },
     });
@@ -318,12 +315,29 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
         lexicalVector: (chunk.lexicalVector as Record<string, number> | null) || null,
         embeddingProvider: chunk.embeddingProvider,
       })),
-      6
+      15
     );
 
-    const decision = decideEvidenceMode(ranked, hasImageContext, enrichedMessage);
-    const effectiveMode = decision.mode;
-    const effectiveSelected = decision.selected;
+    const reranked = await rerankChunksWithLLM(enrichedMessage, ranked, 5);
+
+    const decision = decideEvidenceMode(reranked, hasImageContext);
+    let effectiveMode = decision.mode;
+    let effectiveSelected = decision.selected;
+
+    if (effectiveMode === "grounded" && effectiveSelected.length >= 2) {
+      const uniqueDocs = new Set(effectiveSelected.map((c) => c.documentId));
+      if (uniqueDocs.size >= 2) {
+        effectiveMode = "ambiguous";
+        const perDoc = new Map<string, typeof effectiveSelected[0]>();
+        for (const chunk of effectiveSelected) {
+          if (!perDoc.has(chunk.documentId)) {
+            perDoc.set(chunk.documentId, chunk);
+          }
+        }
+        effectiveSelected = Array.from(perDoc.values()).slice(0, 2);
+        decision.confidence = 0.72;
+      }
+    }
 
     const answer = await generateAgentAnswer({
       question: message,
@@ -334,25 +348,62 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       conversationHistory: historyContext || undefined,
     });
 
-    const citations = effectiveSelected.map(
-      (chunk: {
-        id: string;
-        documentId: string;
-        documentTitle: string;
-        content: string;
-        score: number;
-      }) => ({
-        chunkId: chunk.id,
-        documentId: chunk.documentId,
-        title: chunk.documentTitle,
-        excerpt: chunk.content.slice(0, 240),
-        score: Number(chunk.score.toFixed(4)),
-        fileUrl:
-          chunks.find(
-            (dbChunk: { id: string; document: { filePath: string | null } }) =>
-              dbChunk.id === chunk.id
-          )?.document.filePath || null,
-      })
+    const questionKeywords = message
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/g)
+      .filter((w: string) => w.length >= 3);
+
+    function chunkQuestionRelevance(content: string): number {
+      const norm = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return questionKeywords.filter((kw: string) => norm.includes(kw)).length;
+    }
+
+    function findBestExcerpt(content: string, maxLen = 260): string {
+      if (questionKeywords.length === 0) return content.slice(0, maxLen);
+      const norm = content.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      let bestStart = 0;
+      let bestScore = -1;
+      for (let s = 0; s < norm.length - 60; s += 40) {
+        const window = norm.slice(s, s + maxLen);
+        let score = 0;
+        for (const kw of questionKeywords) {
+          if (window.includes(kw)) score++;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestStart = s;
+        }
+      }
+      return content.slice(bestStart, bestStart + maxLen);
+    }
+
+    const citationMap = new Map<string, {
+      chunkId: string; documentId: string; title: string;
+      excerpt: string; score: number; fileUrl: string | null;
+      _relevance: number;
+    }>();
+    for (const chunk of effectiveSelected) {
+      const relevance = chunkQuestionRelevance(chunk.content);
+      const existing = citationMap.get(chunk.documentId);
+      if (!existing || relevance > existing._relevance) {
+        citationMap.set(chunk.documentId, {
+          chunkId: chunk.id,
+          documentId: chunk.documentId,
+          title: chunk.documentTitle,
+          excerpt: findBestExcerpt(chunk.content),
+          score: Number(chunk.score.toFixed(4)),
+          fileUrl:
+            chunks.find(
+              (dbChunk: { id: string; document: { filePath: string | null } }) =>
+                dbChunk.id === chunk.id
+            )?.document.filePath || null,
+          _relevance: relevance,
+        });
+      }
+    }
+    const citations = Array.from(citationMap.values()).map(
+      ({ _relevance, ...rest }) => rest
     );
 
     const alternatives: AgentSourceAlternative[] | undefined =
@@ -391,7 +442,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       alternatives: alternatives || [],
     });
 
-    await prisma.agentMessage.create({
+    const assistantMessage = await prisma.agentMessage.create({
       data: {
         conversationId: conversation.id,
         role: "ASSISTANT",
@@ -402,6 +453,28 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
       },
     });
 
+    const trackedDocIds = new Set(
+      citations
+        .map((c) => c.documentId)
+        .filter((docId) => {
+          const dbChunk = chunks.find(
+            (ch: { documentId: string; document: { trackAccess: boolean } }) =>
+              ch.documentId === docId
+          );
+          return dbChunk?.document.trackAccess === true;
+        })
+    );
+    if (trackedDocIds.size > 0) {
+      await prisma.agentDocumentAccessLog.createMany({
+        data: Array.from(trackedDocIds).map((docId) => ({
+          documentId: docId,
+          userId: session.user.id,
+          userEmail: user.email,
+          question: message.slice(0, 500),
+        })),
+      });
+    }
+
     await prisma.agentConversation.update({
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
@@ -409,6 +482,7 @@ Extrae en español: texto visible, cifras, campos, etiquetas, estados, elementos
 
     return NextResponse.json({
       ...payload,
+      messageId: assistantMessage.id,
       ambiguityEventId: questionEvent.ambiguityEventId,
       conversationId: conversation.id,
     });

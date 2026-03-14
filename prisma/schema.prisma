@@ -23,6 +23,8 @@ model User {
   enrollments         Enrollment[]
   companies           Company[]            @relation("CompanyToUser")
   contracts           Contract[]           @relation("ContractToUser")
+  agentFeedbacks      AgentMessageFeedback[]
+  documentAccessLogs  AgentDocumentAccessLog[]
 
   @@index([email])
 }
@@ -309,21 +311,40 @@ model CompanyAgent {
 }
 
 model AgentSourceDocument {
-  id         String            @id @default(cuid())
-  agentId    String
-  title      String
-  sourceType AgentSourceType
-  mimeType   String?
-  filePath   String?
-  rawText    String
-  status     AgentSourceStatus @default(READY)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  chunks     AgentChunk[]
-  agent      CompanyAgent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id               String                   @id @default(cuid())
+  agentId          String
+  title            String
+  sourceType       AgentSourceType
+  mimeType         String?
+  filePath         String?
+  rawText          String
+  status           AgentSourceStatus        @default(READY)
+  qualityScore     Int?
+  qualityAnalysis  Json?
+  trackAccess      Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  chunks           AgentChunk[]
+  accessLogs       AgentDocumentAccessLog[]
+  agent            CompanyAgent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
   @@index([status])
+}
+
+model AgentDocumentAccessLog {
+  id         String              @id @default(cuid())
+  documentId String
+  userId     String
+  userEmail  String
+  question   String
+  createdAt  DateTime            @default(now())
+  document   AgentSourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model AgentChunk {
@@ -365,18 +386,33 @@ model AgentConversation {
 }
 
 model AgentMessage {
-  id             String            @id @default(cuid())
+  id             String                @id @default(cuid())
   conversationId String
   role           AgentMessageRole
   content        String
   mode           String?
   confidence     Float?
   citations      Json?
-  createdAt      DateTime          @default(now())
-  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime              @default(now())
+  conversation   AgentConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback       AgentMessageFeedback?
 
   @@index([conversationId])
   @@index([createdAt])
+}
+
+model AgentMessageFeedback {
+  id        String       @id @default(cuid())
+  messageId String       @unique
+  userId    String
+  helpful   Boolean
+  comment   String?
+  createdAt DateTime     @default(now())
+  message   AgentMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([messageId])
 }
 
 model AgentQuestionTopic {

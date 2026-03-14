@@ -36,7 +36,7 @@ export async function getAgentInsights(filters: AgentInsightsFilters) {
     };
   }
 
-  const [summary, topAnswered, topUnresolved, topAmbiguousEvents, topTopics, unresolvedAmbiguities] =
+  const [summary, topAnswered, topUnresolved, topAmbiguousEvents, topTopics, unresolvedAmbiguities, modeBreakdown, documentCitations, feedbackStats] =
     await Promise.all([
       prisma.agentQuestionEvent.groupBy({
         by: ["resolution"],
@@ -134,6 +134,41 @@ export async function getAgentInsights(filters: AgentInsightsFilters) {
           agent: { select: { name: true, company: { select: { name: true } } } },
         },
       }),
+      prisma.agentQuestionEvent.groupBy({
+        by: ["mode"],
+        where: {
+          agentId: { in: agentIds },
+          createdAt: { gte: since },
+        },
+        _count: { _all: true },
+      }),
+      prisma.agentQuestionEvent.findMany({
+        where: {
+          agentId: { in: agentIds },
+          createdAt: { gte: since },
+          mode: { in: ["grounded", "ambiguous"] },
+        },
+        select: {
+          citationsSnapshot: true,
+        },
+      }),
+      prisma.agentMessageFeedback.findMany({
+        where: {
+          message: {
+            conversation: {
+              agentId: { in: agentIds },
+            },
+          },
+          createdAt: { gte: since },
+        },
+        select: {
+          helpful: true,
+          comment: true,
+          message: {
+            select: { mode: true },
+          },
+        },
+      }),
     ]);
 
   const summaryMap = new Map(summary.map((row) => [row.resolution, row._count._all]));
@@ -166,12 +201,70 @@ export async function getAgentInsights(filters: AgentInsightsFilters) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 12);
 
+  const modeMap = new Map(modeBreakdown.map((row) => [row.mode, row._count._all]));
+  const totalByMode = modeBreakdown.reduce((acc, row) => acc + row._count._all, 0);
+  const groundedCount = (modeMap.get("grounded") || 0) + (modeMap.get("ambiguous") || 0);
+  const fallbackCount = modeMap.get("fallback") || 0;
+  const internalPercent = totalByMode > 0 ? Math.round((groundedCount / totalByMode) * 100) : 0;
+  const externalPercent = totalByMode > 0 ? Math.round((fallbackCount / totalByMode) * 100) : 0;
+
+  const docCitationCount = new Map<string, { title: string; count: number }>();
+  for (const event of documentCitations) {
+    const citations = event.citationsSnapshot as Array<{ title?: string; documentId?: string }> | null;
+    if (!Array.isArray(citations)) continue;
+    for (const cit of citations) {
+      const docId = cit.documentId || "unknown";
+      const prev = docCitationCount.get(docId);
+      if (prev) {
+        prev.count += 1;
+      } else {
+        docCitationCount.set(docId, { title: cit.title || docId, count: 1 });
+      }
+    }
+  }
+  const sortedDocs = Array.from(docCitationCount.values()).sort((a, b) => b.count - a.count);
+  const mostConsultedDocs = sortedDocs.slice(0, 8);
+  const leastConsultedDocs = sortedDocs.length > 1
+    ? [...sortedDocs].sort((a, b) => a.count - b.count).slice(0, 5)
+    : [];
+
+  const totalFeedback = feedbackStats.length;
+  const helpfulCount = feedbackStats.filter((f) => f.helpful).length;
+  const notHelpfulCount = totalFeedback - helpfulCount;
+  const helpfulPercent = totalFeedback > 0 ? Math.round((helpfulCount / totalFeedback) * 100) : 0;
+  const feedbackOnFallback = feedbackStats.filter((f) => f.message.mode === "fallback");
+  const fallbackHelpful = feedbackOnFallback.filter((f) => f.helpful).length;
+  const negativeComments = feedbackStats
+    .filter((f) => !f.helpful && f.comment)
+    .map((f) => f.comment as string)
+    .slice(0, 10);
+
   return {
     summary: {
       totalQuestions: summary.reduce((acc, row) => acc + row._count._all, 0),
       totalAnswered: summaryMap.get("ANSWERED") || 0,
       totalUnresolved: summaryMap.get("UNRESOLVED") || 0,
       totalAmbiguous: summaryMap.get("AMBIGUOUS") || 0,
+    },
+    modeBreakdown: {
+      internalPercent,
+      externalPercent,
+      grounded: groundedCount,
+      fallback: fallbackCount,
+      image: modeMap.get("image") || 0,
+    },
+    documentStats: {
+      mostConsulted: mostConsultedDocs,
+      leastConsulted: leastConsultedDocs,
+    },
+    feedbackStats: {
+      total: totalFeedback,
+      helpful: helpfulCount,
+      notHelpful: notHelpfulCount,
+      helpfulPercent,
+      fallbackTotal: feedbackOnFallback.length,
+      fallbackHelpful,
+      negativeComments,
     },
     topAnswered,
     topUnresolved,
