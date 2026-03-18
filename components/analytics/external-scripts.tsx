@@ -20,9 +20,7 @@ export function ExternalScripts({ metaPixelId }: ExternalScriptsProps) {
 
       {/* Preconnect a dominios externos para mejorar tiempos de carga */}
       <link rel="preconnect" href="https://connect.facebook.net" />
-      <link rel="preconnect" href="https://assets.calendly.com" />
       <link rel="dns-prefetch" href="https://connect.facebook.net" />
-      <link rel="dns-prefetch" href="https://assets.calendly.com" />
     </>
   );
 }

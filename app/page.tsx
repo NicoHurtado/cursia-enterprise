@@ -20,12 +20,9 @@ import {
   Briefcase,
   User,
   Mail,
-  Smartphone
+  Smartphone,
+  Send
 } from "lucide-react";
-import { CalendlyWidget } from "@/components/contact/calendly-widget";
-
-// Calendly URL - Actualizar con tu enlace real
-const CALENDLY_URL = "https://calendly.com/cursia/30min";
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -37,13 +34,8 @@ export default function Home() {
     numEmpleados: ""
   });
 
-  const [showCalendly, setShowCalendly] = useState(false);
-  // Precargar script de Calendly ~3s después, cuando no quede nada crítico por cargar
-  const [preloadCalendlyAtIdle, setPreloadCalendlyAtIdle] = useState(false);
-  React.useEffect(() => {
-    const t = setTimeout(() => setPreloadCalendlyAtIdle(true), 3000);
-    return () => clearTimeout(t);
-  }, []);
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formSubmitting, setFormSubmitting] = useState(false);
   // Botón WhatsApp con lazy render: se muestra ~1s después para no competir con LCP
   const [showWhatsAppButton, setShowWhatsAppButton] = useState(false);
   React.useEffect(() => {
@@ -56,29 +48,21 @@ export default function Home() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCalendlyClick = async () => {
-    // Mostrar Calendly primero para mejor UX
-    setShowCalendly(true);
-
-    // Scroll suave hacia el widget de Calendly inmediatamente
-    requestAnimationFrame(() => {
-      const calendlySection = document.getElementById('calendly-widget');
-      if (calendlySection) {
-        calendlySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    });
-
-    // Enviar datos al API de leads de forma asíncrona (no bloquea la UI)
-    fetch('/api/leads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    }).catch((error) => {
-      // Silenciosamente manejar errores sin afectar la UX
+  const handleSubmitLead = async () => {
+    if (!isFormValid || formSubmitting) return;
+    setFormSubmitting(true);
+    try {
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      setFormSubmitted(true);
+    } catch (error) {
       console.error('Error al guardar lead:', error);
-    });
+    } finally {
+      setFormSubmitting(false);
+    }
   };
 
   const isFormValid = formData.nombre && formData.celular && formData.correo && formData.empresa && formData.cargo && formData.numEmpleados;
@@ -102,27 +86,27 @@ export default function Home() {
               <a href="#contacto" className="hover:text-[#0066FF] transition-colors">Contacto</a>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <a
                 href="https://instagram.com/cursia.online"
                 target="_blank"
                 rel="noreferrer"
-                className="p-2 text-slate-400 hover:text-pink-500 transition-colors"
+                className="hidden sm:flex p-2 text-slate-400 hover:text-pink-500 transition-colors"
                 aria-label="Instagram"
               >
                 <Instagram className="w-5 h-5" />
               </a>
               <Link
                 href="/auth/signin"
-                className="hidden sm:flex items-center px-4 py-2 text-slate-600 hover:text-slate-900 transition-all font-bold text-sm gap-2"
+                className="flex items-center px-3 py-2 sm:px-4 text-slate-600 hover:text-slate-900 transition-all font-bold text-sm gap-1.5 sm:gap-2"
               >
-                <LogIn className="w-4 h-4" /> Acceder
+                <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">Acceder</span>
               </Link>
               <a
                 href="#contacto"
-                className="inline-flex items-center px-6 py-2.5 rounded-full bg-[#0066FF] hover:bg-blue-700 text-white transition-all font-bold text-sm gap-2 shadow-sm"
+                className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-2.5 rounded-full bg-[#0066FF] hover:bg-blue-700 text-white transition-all font-bold text-xs sm:text-sm gap-1.5 sm:gap-2 shadow-sm"
               >
-                Agendar Demo <ArrowRight className="w-4 h-4" />
+                Demo <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           </div>
@@ -321,7 +305,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Contact Form Section with Calendly */}
+        {/* Contact Form Section */}
         <section id="contacto" className="py-32 bg-white relative overflow-hidden">
           <div className="absolute inset-0 bg-blue-50/50 pointer-events-none" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -330,7 +314,7 @@ export default function Home() {
                 Iniciemos el Cambio <br />en su <span className="text-[#0066FF]">Organización</span>
               </h2>
               <p className="text-xl text-slate-500 leading-relaxed">
-                Complete sus datos y agende una reunión estratégica. Juntos diseñaremos el plan de capacitación ideal para su equipo.
+                Complete sus datos y nos pondremos en contacto para diseñar el plan de capacitación ideal para su equipo.
               </p>
             </div>
 
@@ -339,11 +323,11 @@ export default function Home() {
               <div className="p-8 md:p-10 rounded-[2.5rem] bg-white shadow-[0_30px_60px_-15px_rgba(0,102,255,0.1)] border border-slate-100">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-12 h-12 rounded-2xl bg-[#0066FF] flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-white" />
+                    <Send className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-xl text-slate-900">Agendar Reunión</h3>
-                    <p className="text-sm text-slate-500">Complete el formulario para continuar</p>
+                    <h3 className="font-bold text-xl text-slate-900">Solicitar Demo</h3>
+                    <p className="text-sm text-slate-500">Complete el formulario y lo contactaremos</p>
                   </div>
                 </div>
 
@@ -447,18 +431,26 @@ export default function Home() {
                     </select>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCalendlyClick}
-                    disabled={!isFormValid}
-                    className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-3 mt-6 ${isFormValid
-                      ? "bg-[#0066FF] text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98]"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                      }`}
-                  >
-                    <Calendar className="w-5 h-5" />
-                    Agendar Reunión en Calendly
-                  </button>
+                  {formSubmitted ? (
+                    <div className="w-full py-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center mt-6 animate-in fade-in duration-300">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+                      <p className="text-lg font-bold text-emerald-800">¡Datos enviados correctamente!</p>
+                      <p className="text-sm text-emerald-600 mt-1">Nos pondremos en contacto contigo pronto.</p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmitLead}
+                      disabled={!isFormValid || formSubmitting}
+                      className={`w-full py-4 rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-3 mt-6 ${isFormValid && !formSubmitting
+                        ? "bg-[#0066FF] text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                        }`}
+                    >
+                      <Send className="w-5 h-5" />
+                      {formSubmitting ? "Enviando..." : "Enviar Solicitud"}
+                    </button>
+                  )}
                 </form>
               </div>
 
@@ -532,53 +524,12 @@ export default function Home() {
                 {/* Info Box */}
                 <div className="p-6 rounded-2xl bg-blue-50/80 border border-blue-100">
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    <span className="font-bold text-[#0066FF]">💡 Tip:</span> Después de completar el formulario, podrás seleccionar el horario que más te convenga directamente en esta página.
+                    <span className="font-bold text-[#0066FF]">💡 Tip:</span> Al enviar el formulario, nuestro equipo se comunicará contigo en menos de 24 horas para coordinar una reunión estratégica.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Calendly Inline Widget */}
-          {showCalendly && (
-            <div
-              id="calendly-widget"
-              className="mt-16 animate-fade-in"
-            >
-              <div className="max-w-4xl mx-auto p-8 rounded-[2.5rem] bg-white shadow-[0_30px_60px_-15px_rgba(0,102,255,0.1)] border border-slate-100">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-[#0066FF] flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xl text-slate-900">Selecciona tu horario</h3>
-                      <p className="text-sm text-slate-500">Elige el día y hora que mejor te convenga</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowCalendly(false)}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                    aria-label="Cerrar"
-                  >
-                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Calendly Inline Embed - Iframe solo al hacer clic; script ya precargado a los 3s */}
-                <CalendlyWidget
-                  url={CALENDLY_URL}
-                  name={formData.nombre}
-                  email={formData.correo}
-                  onClose={() => setShowCalendly(false)}
-                  shouldLoad={showCalendly}
-                  scriptAlreadyPreloaded={preloadCalendlyAtIdle}
-                />
-              </div>
-            </div>
-          )}
         </section>
       </main>
 
@@ -612,12 +563,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Precarga silenciosa de Calendly al final (solo script) */}
-      <CalendlyWidget
-        url={CALENDLY_URL}
-        preloadScriptOnly={preloadCalendlyAtIdle}
-        shouldLoad={false}
-      />
     </div>
   );
 }

@@ -11,7 +11,6 @@ export function CriticalResources() {
     // Preconnect a dominios críticos cuando el componente se monte
     const domains = [
       "https://connect.facebook.net",
-      "https://assets.calendly.com",
       "https://fonts.googleapis.com",
       "https://fonts.gstatic.com",
     ];

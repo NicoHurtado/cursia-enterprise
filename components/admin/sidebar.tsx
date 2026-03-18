@@ -12,7 +12,9 @@ import {
   UserPlus,
   Presentation,
   ClipboardCheck,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -25,48 +27,72 @@ const navItems = [
   { href: "/admin/settings", label: "Configuración", icon: Settings },
 ];
 
-export function AdminSidebar() {
+export function AdminSidebar({ 
+  isOpen, 
+  onClose 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 bg-card border-r min-h-screen p-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">
-          <span className="text-black">Curs</span>
-          <span className="text-cursia-blue">ia</span>
-          <span className="text-black"> Enterprise</span>
-        </h1>
-        <p className="text-sm text-muted-foreground">Panel de Administración</p>
+    <div className={cn(
+      "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform duration-300 lg:static lg:translate-x-0 overflow-y-auto",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold whitespace-nowrap">
+              <span className="text-black">Curs</span>
+              <span className="text-cursia-blue">ia</span>
+              <span className="text-black"> Ent</span>
+            </h1>
+            <p className="text-xs text-muted-foreground whitespace-nowrap">Panel de Administración</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={onClose}
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        <nav className="space-y-1 md:space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            // More precise active detection
+            let isActive = false;
+            if (item.href === "/admin") {
+              // Dashboard is active only if pathname is exactly /admin
+              isActive = pathname === "/admin";
+            } else {
+              // Other items are active if pathname starts with their href
+              isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            }
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  if (window.innerWidth < 1024) onClose();
+                }}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 md:px-4 rounded-lg transition-all text-sm md:text-base",
+                  isActive
+                    ? "bg-slate-900 text-white font-medium shadow-sm"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                )}
+              >
+                <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-      <nav className="space-y-2">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          // More precise active detection
-          let isActive = false;
-          if (item.href === "/admin") {
-            // Dashboard is active only if pathname is exactly /admin
-            isActive = pathname === "/admin";
-          } else {
-            // Other items are active if pathname starts with their href
-            isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          }
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2 rounded-md transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground font-semibold"
-                  : "hover:bg-accent"
-              )}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
     </div>
   );
 }
