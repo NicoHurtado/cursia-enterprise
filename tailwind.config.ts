@@ -46,7 +46,16 @@ const config: Config = {
         cursia: {
           blue: "#0066FF",
           purple: "#7C3AED",
+          green: "#006c49",
+          surface: "#f7f9fb",
+          "surface-low": "#f2f4f6",
+          "on-surface": "#191c1e",
+          "on-surface-dim": "#424656",
         },
+      },
+      fontFamily: {
+        headline: ["var(--font-plus-jakarta)", "sans-serif"],
+        body: ["var(--font-manrope)", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
