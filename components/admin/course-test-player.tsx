@@ -113,6 +113,70 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
   const canGoNext = currentLessonIndex < allLessons.length - 1;
   const canGoPrev = viewMode === "quiz" || (viewMode === "lesson" && currentLessonIndex > 0) || (viewMode === "evaluation" && allLessons.length > 0);
   const canProceedToNext = !hasQuizzes || currentLessonQuizPassed;
+  const nextLessonTitle = canGoNext ? allLessons[currentLessonIndex + 1]?.title : null;
+
+  const nextStep = (() => {
+    if (viewMode === "lesson") {
+      if (hasQuizzes) {
+        return {
+          description: "Quiz de esta leccion",
+          cta: "Ir al Quiz",
+        };
+      }
+
+      if (nextLessonTitle) {
+        return {
+          description: `Lectura: ${nextLessonTitle}`,
+          cta: "Ir a la Siguiente Lectura",
+        };
+      }
+
+      if (course.finalEvaluation) {
+        return {
+          description: "Evaluacion final del curso",
+          cta: "Ir a Evaluacion Final",
+        };
+      }
+
+      return {
+        description: "Finalizar curso",
+        cta: "Finalizar Curso",
+      };
+    }
+
+    if (viewMode === "quiz") {
+      if (!canProceedToNext) {
+        return {
+          description: "Aprobar quiz para desbloquear el siguiente contenido",
+          cta: "Completa el Quiz",
+        };
+      }
+
+      if (nextLessonTitle) {
+        return {
+          description: `Lectura: ${nextLessonTitle}`,
+          cta: "Ir a la Siguiente Lectura",
+        };
+      }
+
+      if (course.finalEvaluation) {
+        return {
+          description: "Evaluacion final del curso",
+          cta: "Ir a Evaluacion Final",
+        };
+      }
+
+      return {
+        description: "Finalizar curso",
+        cta: "Finalizar Curso",
+      };
+    }
+
+    return {
+      description: "Siguiente paso",
+      cta: "Continuar",
+    };
+  })();
 
   const handleNext = () => {
     if (viewMode === "lesson" && hasQuizzes) {
@@ -400,7 +464,6 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
                 answers={quizAnswers}
                 submitted={quizSubmitted}
                 scores={quizScores}
-                passed={quizPassed[currentLesson.id] || false}
                 passingScore={PASSING_SCORE}
                 onAnswerChange={(quizId, answerIndex) => {
                   setQuizAnswers((prev) => {
@@ -412,12 +475,12 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
                     }
                   });
                 }}
-                onSubmit={(quizId, score, passed) => {
+                onSubmit={(quizId, score, _passed) => {
                   setQuizSubmitted((prev) => ({ ...prev, [quizId]: true }));
                   setQuizScores((prev) => ({ ...prev, [quizId]: score }));
-                  if (passed) {
-                    setQuizPassed((prev) => ({ ...prev, [currentLesson.id]: true }));
-                  }
+                }}
+                onSubmitSummary={(_averageScore, passed) => {
+                  setQuizPassed((prev) => ({ ...prev, [currentLesson.id]: passed }));
                 }}
                 onRetry={() => {
                   const quizIds = currentLesson.quizzes.map(q => q.id);
@@ -499,45 +562,30 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
                   </div>
                 )}
 
-                <Button
-                  size="lg"
-                  onClick={handleNext}
-                  disabled={
-                    (viewMode === "quiz" && !canProceedToNext) ||
-                    (viewMode === "evaluation")
-                  }
-                  className={cn(
-                    "rounded-full font-bold px-10 shadow-lg shadow-indigo-200/50 transition-all hover:scale-105",
-                    viewMode === "quiz" && !canProceedToNext
-                      ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed"
-                      : "bg-cursia-blue hover:bg-cursia-blue/90 text-white"
+                <div className="flex flex-col items-end gap-1">
+                  {viewMode !== "evaluation" && (
+                    <p className="text-xs font-semibold text-slate-500">
+                      Proximo: {nextStep.description}
+                    </p>
                   )}
-                >
-                  {viewMode === "lesson" && hasQuizzes ? (
-                    "Comenzar Quiz"
-                  ) : viewMode === "lesson" && !hasQuizzes ? (
-                    canGoNext ? (
-                      "Siguiente Lección"
-                    ) : course.finalEvaluation ? (
-                      "Ir a Evaluación Final"
-                    ) : (
-                      "Finalizar Curso"
-                    )
-                  ) : viewMode === "quiz" && canProceedToNext ? (
-                    canGoNext ? (
-                      "Siguiente Lección"
-                    ) : course.finalEvaluation ? (
-                      "Ir a Evaluación Final"
-                    ) : (
-                      "Finalizar Curso"
-                    )
-                  ) : viewMode === "quiz" && !canProceedToNext ? (
-                    "Completa el Quiz"
-                  ) : (
-                    "¡Felicidades!"
-                  )}
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </Button>
+                  <Button
+                    size="lg"
+                    onClick={handleNext}
+                    disabled={
+                      (viewMode === "quiz" && !canProceedToNext) ||
+                      (viewMode === "evaluation")
+                    }
+                    className={cn(
+                      "rounded-full font-bold px-10 shadow-lg shadow-indigo-200/50 transition-all hover:scale-105",
+                      viewMode === "quiz" && !canProceedToNext
+                        ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed"
+                        : "bg-cursia-blue hover:bg-cursia-blue/90 text-white"
+                    )}
+                  >
+                    {nextStep.cta}
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -636,10 +684,10 @@ function QuizTestViewer({
   answers,
   submitted,
   scores,
-  passed,
   passingScore,
   onAnswerChange,
   onSubmit,
+  onSubmitSummary,
   onRetry,
 }: {
   quizzes: Array<{
@@ -651,10 +699,10 @@ function QuizTestViewer({
   answers: Record<string, number[]>;
   submitted: Record<string, boolean>;
   scores: Record<string, number>;
-  passed: boolean;
   passingScore: number;
   onAnswerChange: (quizId: string, answerIndex: number) => void;
   onSubmit: (quizId: string, score: number, passed: boolean) => void;
+  onSubmitSummary: (averageScore: number, passed: boolean) => void;
   onRetry: () => void;
 }) {
   const allSubmitted = quizzes.every((quiz) => submitted[quiz.id]);
@@ -699,6 +747,10 @@ function QuizTestViewer({
       const isPassed = questionScore >= passingScore;
       onSubmit(quiz.id, Math.round(questionScore), isPassed);
     });
+
+    const averageScore = Math.round(totalScore / quizzes.length);
+    const isTotalPassed = averageScore >= passingScore;
+    onSubmitSummary(averageScore, isTotalPassed);
   };
 
   if (allSubmitted) {
@@ -711,18 +763,18 @@ function QuizTestViewer({
       <div className="max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
         <Card className={cn(
           "border-none shadow-xl rounded-3xl overflow-hidden text-center",
-          passed ? "bg-gradient-to-b from-green-50 to-white" : "bg-gradient-to-b from-red-50 to-white"
+          isTotalPassed ? "bg-gradient-to-b from-green-50 to-white" : "bg-gradient-to-b from-red-50 to-white"
         )}>
           <CardContent className="pt-12 pb-12 px-8">
             <div className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg",
-              passed ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              isTotalPassed ? "bg-green-500 text-white" : "bg-red-500 text-white"
             )}>
-              {passed ? <Trophy className="w-12 h-12" /> : <Flame className="w-12 h-12" />}
+              {isTotalPassed ? <Trophy className="w-12 h-12" /> : <Flame className="w-12 h-12" />}
             </div>
 
             <h2 className="text-3xl font-black text-slate-800 mb-2">
-              {passed ? "¡Excelente Trabajo!" : "Sigue Intentando"}
+              {isTotalPassed ? "¡Excelente Trabajo!" : "Sigue Intentando"}
             </h2>
 
             <div className="text-6xl font-black mb-6 tracking-tighter" style={{ color: isTotalPassed ? '#22c55e' : '#ef4444' }}>
@@ -730,13 +782,13 @@ function QuizTestViewer({
             </div>
 
             <p className="text-slate-600 font-medium text-lg mb-8 max-w-md mx-auto">
-              {passed
+              {isTotalPassed
                 ? "Has demostrado un gran dominio del tema. ¡Estás listo para continuar!"
                 : `Necesitas un ${passingScore}% para aprobar. Repasa el material y vuelve a intentarlo.`}
             </p>
 
             <div className="flex justify-center gap-4">
-              {!passed && (
+              {!isTotalPassed && (
                 <Button
                   onClick={onRetry}
                   size="lg"
@@ -797,6 +849,33 @@ function QuizTestViewer({
               </Card>
             );
           })}
+        </div>
+
+        <div className="pt-2">
+          <Card className="border-none shadow-sm rounded-2xl bg-white">
+            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-500">Nota final del quiz:</span>
+                <Badge
+                  className={cn(
+                    "text-sm px-3 py-1 rounded-full",
+                    isTotalPassed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  )}
+                >
+                  {averageScore}%
+                </Badge>
+              </div>
+              {!isTotalPassed && (
+                <Button
+                  onClick={onRetry}
+                  size="sm"
+                  className="rounded-xl font-bold bg-slate-800 hover:bg-slate-900"
+                >
+                  Reintentar Quiz
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
