@@ -1,0 +1,297 @@
+MANUAL DE MARCA (BASADO EN LA LANDING ACTUAL)
+Cursia for Enterprise — Formación corporativa de alto impacto con IA
+Fuente de referencia: estilos y copy presentes en la landing (Tailwind + CSS + layout).
+
+=====================================================================
+1) ESENCIA DE MARCA
+=====================================================================
+
+1.1 Nombre
+- Cursia (en la UI se refuerza visualmente “Curs” + “ia” con el “ia” en azul).
+- Versión usada en SEO/metadata: “Cursia for Enterprise”.
+
+1.2 Qué es / Promesa central
+- Plataforma B2B de capacitación corporativa con IA enfocada en evidencia:
+  “garantiza que los empleados realmente aprenden”, con evaluaciones de preguntas abiertas,
+  detección de fraude y reportes estratégicos.
+
+1.3 Personalidad (cómo “suena” y cómo se “ve”)
+- Moderna, tecnológica, confiable y directa.
+- “Premium simple”: mucho aire, bordes grandes, sombras suaves, microanimaciones.
+- Enfasis en seguridad/integridad (“Integridad de Datos Garantizada”, “Detección de Fraude”).
+
+1.4 Valores comunicados (implícitos por UI/copy)
+- Verificabilidad (evaluación real, no memorización).
+- Velocidad/eficiencia (“Tiempo récord”, “Sin fricción”).
+- Personalización (contenido “a su medida”, “sin plantillas”).
+- Confianza y control (monitoreo en tiempo real, reportes).
+
+1.5 Público objetivo (según copy y formularios)
+- Empresas (B2B), líderes de RRHH, L&D, gerencia, jefes de área.
+- Mercado hispanohablante, con señal explícita en metadata: locale es_CO (Colombia).
+- Usuarios secundarios: empleados que toman cursos y evaluaciones.
+
+=====================================================================
+2) IDENTIDAD VISUAL
+=====================================================================
+
+2.1 Logotipo / wordmark (uso actual)
+- Construcción: “Curs” en oscuro + “ia” en azul de marca.
+- Tipografía sugerida para el wordmark: familia headline (Plus Jakarta Sans) con peso alto.
+- Reglas rápidas:
+  - Fondo claro preferido (blanco/superficie).
+  - Evitar degradados dentro de la palabra, salvo en héroes como acento.
+  - Mantener “ia” en azul marca para consistencia.
+
+2.2 Paleta de color (colores de marca)
+
+Colores definidos como “cursia.*” (Tailwind):
+- Cursia Blue: #0066FF  (primario de marca, CTAs, links, highlights)
+- Cursia Green: #006C49  (confianza/seguridad/validación; badges, mensajes positivos)
+- Surface: #F7F9FB       (fondo base)
+- Surface Low: #F2F4F6   (secciones alternas, contenedores)
+- On Surface: #191C1E    (texto principal)
+- On Surface Dim: #424656 (texto secundario)
+
+Tokens UI (HSL vía CSS variables, estilo “system”):
+- --primary (light): 221.2 83.2% 53.3%   (equivalente funcional del azul primario)
+- --background / --foreground, etc. (tema claro/oscuro tipo shadcn)
+
+Aplicación recomendada
+- Primario (acciones): Cursia Blue
+- Secundario (fondos/secciones): Surface / Surface Low
+- Acento (detalles): Purple (con moderación)
+- Validación/seguridad: Green
+- Texto: On Surface + On Surface Dim
+
+Contraste y accesibilidad (guía práctica)
+- Texto sobre Cursia Blue: usar blanco (#FFF).
+- Texto secundario: On Surface Dim en fondos Surface/Superficie baja.
+- Evitar texto gris muy claro sobre Surface Low.
+
+2.3 Tipografías
+
+Fuentes cargadas en layout:
+- Headline (títulos): Plus Jakarta Sans (pesos 400–800) -> variable CSS: --font-plus-jakarta
+- Body (texto): Manrope (pesos 400–700) -> variable CSS: --font-manrope
+- Soporte: Nunito (se aplica className global), pero el sitio usa explícitamente:
+  - Tailwind: font-headline / font-body
+  - CSS de body: fallback incluye Inter y sistema
+
+Jerarquía tipográfica sugerida (basada en tamaños observados)
+- H1 hero: 60–88px, peso 800, tracking negativo (muy compacto y premium).
+- H2 secciones: 36–56px, peso 800.
+- H3/cards: 18–22px, peso 700.
+- Body: 14–18px, Manrope, line-height relajado (1.5–1.8).
+- Microcopy/labels: 10–12px, uppercase, tracking amplio (wider).
+
+2.4 Estilo gráfico (look & feel)
+
+Sistema visual dominante
+- “Clean tech” + “glassmorphism”:
+  - Barra superior tipo “pill” (rounded-full) con blur (backdrop-blur).
+  - Paneles “glass” para elementos flotantes.
+- Bordes redondeados grandes:
+  - Contenedores: 2rem–3rem (rounded-[2rem], rounded-[2.5rem]).
+  - Botones: full/pill o 1.25–1.5rem.
+- Sombras suaves y amplias:
+  - Se usan sombras con azul muy tenue para sensación “premium”.
+- Gradientes como acento, no como base:
+  - Texto degradado en el héroe (from Cursia Blue to blue-400).
+  - Fondos decorativos con “blobs” desenfocados.
+
+Iconografía
+- Set principal: lucide-react (líneas, estilo moderno).
+- Reglas:
+  - Grosor consistente.
+  - Iconos dentro de contenedores con fondo al 5–10% del color (blue/green).
+
+Ilustraciones / imágenes
+- Captura de producto: “PanelCursia.png”, con lightbox.
+- Reglas:
+  - Mostrar UI real para credibilidad.
+  - Bordes redondeados y sombra consistente con el sistema.
+
+2.5 Layout y componentes característicos
+- Navbar flotante tipo “pill” centrada, con CTA primario (“Evaluación Gratis”).
+- Hero con badge de confianza + headline fuerte + CTA “Solicitar Diagnóstico”.
+- Secciones alternando fondo claro/surface-low para ritmo visual.
+- Cards grandes con hover lift (translate-y, shadow) para sensación interactiva.
+- Formulario de lead en card grande, con inputs de fondo “surface” y focus ring azul.
+- CTA persistente: botón flotante de WhatsApp (verde WhatsApp #25D366).
+
+2.6 Motion (animación)
+- Flotación suave de elementos (animate-float / delayed).
+- Fade-in de secciones/elementos (animate-fade-in).
+- Pulsos suaves en blobs y elementos IA.
+
+Uso recomendado
+- Animaciones lentas (6–8s) para “premium”, no “arcade”.
+- Animación solo en elementos clave (badges, fondos, callouts), no en todo.
+
+=====================================================================
+3) VOZ Y MENSAJES (COPY)
+=====================================================================
+
+3.1 Tono
+- Directo, corporativo, con confianza.
+- Beneficio primero, detalle después.
+- Palabras recurrentes: “gratis”, “sin compromisos”, “verificable”, “IA”, “reporte”, “estratégico”.
+
+3.2 Mensajes ancla (extraídos / alineados a la landing)
+- “Evalúe a su equipo gratis.”
+- “Integridad de Datos Garantizada.”
+- “Gestión corporativa sin fricción.”
+- “La IA que verifica el talento.”
+- “Evaluaciones con preguntas abiertas (sin trampas).”
+
+3.3 Claims y pruebas (cómo sostener la promesa)
+- Prueba de proceso: 3 pasos (análisis → equipo responde → reporte estratégico).
+- Prueba de producto: screenshot de panel + monitoreo en tiempo real.
+- Prueba de seguridad: detección de fraude.
+
+3.4 CTA (llamados a la acción)
+- Primario: “Evaluación Gratis” / “Solicitar Diagnóstico” / “Solicitar mi Evaluación Gratuita”.
+- Secundario: “Acceder”, “Ver perfil” (Instagram), WhatsApp.
+
+Recomendación de consistencia
+- Mantener 1 CTA primario por sección y repetir el mismo verbo:
+  - Ejemplo: “Solicitar evaluación gratuita” como estándar.
+
+=====================================================================
+4) GUÍAS DE USO DIGITAL (WEB/UI)
+=====================================================================
+
+4.1 Botones
+- Primario:
+  - Fondo Cursia Blue (#0066FF), texto blanco.
+  - Hover: azul más oscuro (p.ej. blue-700), sombra azul amplia.
+  - Radio: pill o 1.25–1.5rem.
+- Secundario:
+  - Borde suave, fondo surface.
+  - Texto slate/azul en hover.
+- Estado deshabilitado:
+  - Gris claro, texto gris, sin sombra.
+
+4.2 Formularios
+- Inputs:
+  - Fondo Surface, ring gris suave.
+  - Focus ring azul (2px).
+- Microcopy:
+  - Labels uppercase, 10–12px, tracking amplio.
+
+4.3 Tarjetas (cards)
+- Fondo blanco, radio grande, sombra suave.
+- Hover: lift -2px y aumentar sombra.
+- Icono en contenedor con fondo al 10% del color.
+
+4.4 Fondos
+- Alternar secciones:
+  - Surface / Surface Low / blanco.
+- Decoraciones:
+  - Blobs en azul/púrpura con blur grande.
+  - Evitar ruido; mantener minimalista.
+
+4.5 Accesibilidad y confianza
+- Formularios con estados claros (éxito verde, error rojo).
+- Enlaces subrayados en texto (ya se usa en ProseMirror).
+- Mensajes de seguridad cerca de CTA (señal de confianza).
+
+=====================================================================
+5) ANÁLISIS DE MARKETING (LO QUE LA PÁGINA ESTÁ HACIENDO)
+=====================================================================
+
+5.1 Posicionamiento
+- Categoría: capacitación corporativa B2B + evaluación/verificación con IA.
+- Diferenciador: no solo “LMS con IA”, sino “IA para verificar aprendizaje real”
+  (preguntas abiertas + detección de fraude + reporte estratégico).
+- Enemigo declarado (implícito): certificaciones sin validez (memorizar / copiar / IA externa).
+
+5.2 Propuesta de valor (en 1 línea)
+- “Evaluamos y certificamos conocimiento real con IA — rápido, personalizado y verificable.”
+
+5.3 Segmentación (ICP) sugerida por la página
+- Empresas medianas a grandes con:
+  - Programas de formación recurrentes
+  - Riesgo reputacional por certificaciones “infladas”
+  - Necesidad de evidencias para auditoría/estándares
+- Roles:
+  - RRHH / L&D / Talent
+  - Gerencia / Operaciones
+  - Cumplimiento (según industria)
+
+5.4 Funnel (embudo) actual
+- TOFU (atracción):
+  - Mensaje fuerte: “Gratis”, “sin compromisos”.
+  - Confianza: integridad, fraude, IA.
+- MOFU (consideración):
+  - Beneficios funcionales: reportes, personalización, monitoreo.
+  - Evidencia: panel (screenshot) y explicación de proceso.
+- BOFU (conversión):
+  - Formulario corto (nombre, celular, correo corporativo, empresa).
+  - Alternativa inmediata: WhatsApp.
+
+Punto clave
+- El sitio optimiza para “lead”, no para autoservicio.
+
+5.5 Oferta y fricción
+- Oferta de entrada: “Evaluación gratuita / diagnóstico”.
+- Reducción de fricción:
+  - “Sin compromisos”
+  - WhatsApp como canal directo
+  - Formulario simple
+
+Riesgos
+- “Gratis” atrae volumen, pero puede traer leads poco calificados:
+  - Mitigar con un campo adicional (tamaño empresa / número de empleados) o
+    un paso de calificación posterior (sin alargar demasiado el formulario).
+
+5.6 Mensajes que más convencen (según copy actual)
+- Integridad / anti-fraude: alto valor para corporativo.
+- Personalización real (sin plantillas): reduce objeción “otro curso genérico”.
+- Reporte estratégico: habla el lenguaje del decisor (“acciones y brechas”).
+- Tiempo récord: reduce objeción “implementación lenta”.
+
+5.7 Objeciones probables y cómo responder (guía de contenido)
+- “¿Cómo detectan fraude?”:
+  - Explicar señales y metodología a alto nivel (sin exponer detalle sensible).
+  - Mostrar ejemplos de reportes.
+- “¿Qué tan confiable es la calificación?”:
+  - Rúbricas, consistencia, revisión humana opcional, auditoría.
+- “¿Se integra con nuestro LMS?”:
+  - Conectores, exportación, SSO, o roadmap (según producto real).
+- “¿Privacidad de datos?”:
+  - Políticas, cifrado, retención, acuerdos, hosting.
+
+5.8 Canales sugeridos (alineados a la identidad actual)
+- LinkedIn (principal B2B): casos de uso, resultados, mini-estudios.
+- Instagram (ya presente): humanizar y mostrar detrás de cámaras, pero
+  enfocar en líderes (menos “post bonito”, más “insight”).
+- Contenido SEO:
+  - “evaluación de capacitación corporativa”
+  - “certificación con preguntas abiertas”
+  - “detección de fraude en evaluaciones”
+  - “medir aprendizaje real en empresas”
+
+5.9 Sugerencias concretas para mejorar conversión (sin cambiar la esencia)
+- Refuerzo de prueba social:
+  - Logos de clientes / testimonios / números (si existen).
+- Añadir 1 bloque de “Qué recibe” al final del formulario:
+  - Ej.: “Reporte con brechas + recomendaciones + plan sugerido”.
+- CTA consistente:
+  - Unificar “Diagnóstico / Evaluación” para evitar dispersión.
+- Claridad de “gratis”:
+  - Precisar alcance: “evaluación piloto para X personas” o “diagnóstico inicial”.
+
+=====================================================================
+6) CHECKLIST RÁPIDO (PARA MANTENER CONSISTENCIA)
+=====================================================================
+
+- Usar Cursia Blue (#0066FF) para CTAs y highlights.
+- Mantener secciones limpias con mucho aire y bordes grandes.
+- Titulares en Plus Jakarta Sans (font-headline), textos en Manrope (font-body).
+- Cards blancas con sombras suaves + hover lift.
+- Acentos: purple y green solo para “puntos de historia” (tecnología/confianza).
+- Mensaje siempre orientado a evidencia: “verificable, real, sin trampas”.
+
+FIN DEL DOCUMENTO

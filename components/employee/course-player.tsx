@@ -30,7 +30,9 @@ import {
   Star,
   Zap,
   Eye,
-  Lock
+  Lock,
+  AlertCircle,
+  Bot,
 } from "lucide-react";
 import { StructuredContentRenderer } from "@/components/course/StructuredContentRenderer";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -100,7 +102,14 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
     }))
   );
 
-  const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  const [currentLessonIndex, setCurrentLessonIndex] = useState(() => {
+    const completedIds = new Set(
+      enrollment.lessonProgress.filter(lp => lp.completed).map(lp => lp.lessonId)
+    );
+    if (completedIds.size === 0) return 0;
+    const firstUncompleted = allLessons.findIndex(l => !completedIds.has(l.id));
+    return firstUncompleted === -1 ? Math.max(0, allLessons.length - 1) : firstUncompleted;
+  });
   const [viewMode, setViewMode] = useState<"lesson" | "quiz" | "flashcard" | "evaluation" | "taking_evaluation" | "evaluation_result">("lesson");
   const [evaluationResult, setEvaluationResult] = useState<{ score: number; passed: boolean } | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number[]>>({});
@@ -117,6 +126,31 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
     new Set(enrollment.lessonProgress.filter(lp => lp.completed).map(lp => lp.lessonId))
   );
 
+  const [saveError, setSaveError] = useState(false);
+
+  const [showAssistantIntro, setShowAssistantIntro] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = `cursia.assistant.intro.v1.${course.id}`;
+    try {
+      if (!window.localStorage.getItem(key)) {
+        setShowAssistantIntro(true);
+      }
+    } catch {
+      // localStorage blocked (private browsing, etc.) — fail silently.
+    }
+  }, [course.id]);
+
+  const dismissAssistantIntro = () => {
+    setShowAssistantIntro(false);
+    try {
+      window.localStorage.setItem(`cursia.assistant.intro.v1.${course.id}`, "1");
+    } catch {
+      // ignore
+    }
+  };
+
   const [startTime] = useState(Date.now());
   const PASSING_SCORE = 70;
 
@@ -126,6 +160,24 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
     if (index === 0) return false;
     const prevLesson = allLessons[index - 1];
     return !completedLessons.has(prevLesson.id);
+  };
+
+  // Attempts to persist a lesson completion, retrying up to 3 times on failure.
+  const saveLesson = async (lessonId: string, attempt = 1): Promise<boolean> => {
+    try {
+      const res = await fetch(
+        `/api/enrollments/${enrollment.id}/lessons/${lessonId}/complete`,
+        { method: "POST" }
+      );
+      if (res.ok) return true;
+    } catch {
+      // Network error — will retry
+    }
+    if (attempt < 3) {
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+      return saveLesson(lessonId, attempt + 1);
+    }
+    return false;
   };
 
   const handleQuizPass = async () => {
@@ -361,15 +413,16 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
   };
 
   const handleCompleteLesson = async () => {
-    if (currentLesson && !completedLessons.has(currentLesson.id)) {
-      // Optimistic update
-      setCompletedLessons((prev) => new Set([...prev, currentLesson.id]));
+    const lessonId = currentLesson?.id;
+    if (!lessonId || completedLessons.has(lessonId)) return;
 
-      // API call
-      await fetch(`/api/enrollments/${enrollment.id}/lessons/${currentLesson.id}/complete`, {
-        method: "POST",
-      });
-    }
+    // Optimistic update
+    setCompletedLessons((prev) => new Set([...prev, lessonId]));
+
+    // Persist in background with automatic retry; warn the user only if all attempts fail
+    saveLesson(lessonId).then((success) => {
+      if (!success) setSaveError(true);
+    });
   };
 
   // Auto-complete lesson when viewing if no quizzes
@@ -425,6 +478,17 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
       <div className="w-full space-y-6">
 
 
+
+        {/* Save error banner */}
+        {saveError && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm font-medium">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span>
+              Hubo un problema al guardar tu progreso. Recarga la página para sincronizar.
+              Si el problema persiste, contacta al soporte.
+            </span>
+          </div>
+        )}
 
         {/* Header with Gamification */}
         {!isDistractionFree && (
@@ -633,10 +697,10 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                   setQuizSubmitted((prev) => ({ ...prev, [quizId]: true }));
                   setQuizScores((prev) => ({ ...prev, [quizId]: score }));
                 }}
-                onSubmitSummary={(averageScore, passed) => {
+                onSubmitSummary={async (averageScore, passed) => {
                   setQuizPassed((prev) => ({ ...prev, [currentLesson.id]: passed }));
                   if (passed) {
-                    handleQuizPass();
+                    await handleQuizPass();
                     return;
                   }
 
@@ -770,14 +834,68 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
           </div>
         </div>
 
-        {currentLesson && !isDistractionFree && (
-          <LessonAssistant
-            lessonTitle={currentLesson.title}
-            lessonContent={currentLesson.content}
-            position="left"
-            className="md:w-[24vw] w-[90vw]"
-          />
-        )}
+        {currentLesson && !isDistractionFree && (() => {
+          const currentModule = course.modules.find(m => m.id === currentLesson.moduleId);
+          const moduleLessons = currentModule
+            ? currentModule.lessons.map(l => ({ title: l.title, content: l.content }))
+            : [{ title: currentLesson.title, content: currentLesson.content }];
+          return (
+            <LessonAssistant
+              courseTitle={course.title}
+              moduleTitle={currentModule?.title ?? currentLesson.moduleTitle}
+              currentLessonTitle={currentLesson.title}
+              moduleLessons={moduleLessons}
+              position="left"
+              className="md:w-[24vw] w-[90vw]"
+              highlight={showAssistantIntro}
+            />
+          );
+        })()}
+
+        {/* Assistant intro modal (shown once per course per user via localStorage) */}
+        <Dialog open={showAssistantIntro} onOpenChange={(open) => { if (!open) dismissAssistantIntro(); }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <div className="w-14 h-14 rounded-2xl bg-cursia-blue/10 flex items-center justify-center mb-3">
+                <Bot className="w-7 h-7 text-cursia-blue" />
+              </div>
+              <DialogTitle className="text-2xl font-extrabold text-slate-800">
+                Conoce a tu Asistente Cursia
+              </DialogTitle>
+              <DialogDescription className="text-base text-slate-600 pt-2">
+                Un tutor con IA que te acompaña durante todo el curso.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2 text-sm text-slate-700">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cursia-blue/10 flex items-center justify-center flex-shrink-0 text-cursia-blue font-bold">1</div>
+                <p>
+                  Conoce el contenido completo del <strong>módulo en el que estás trabajando</strong>, así puede responder sobre cualquier lección de ese módulo, no solo la actual.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cursia-blue/10 flex items-center justify-center flex-shrink-0 text-cursia-blue font-bold">2</div>
+                <p>
+                  Pídele <strong>ejemplos, resúmenes o explicaciones más simples</strong> cuando algo no te quede claro.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cursia-blue/10 flex items-center justify-center flex-shrink-0 text-cursia-blue font-bold">3</div>
+                <p>
+                  Lo abres y cierras desde la <strong>burbuja azul</strong> en la esquina inferior izquierda. Está disponible en cualquier lección.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={dismissAssistantIntro}
+                className="w-full bg-cursia-blue hover:bg-cursia-blue/90 text-white font-semibold"
+              >
+                Entendido, empezar curso
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Quiz Failure Modal */}
         <Dialog open={showFailureModal} onOpenChange={setShowFailureModal}>
@@ -920,13 +1038,13 @@ function QuizTestViewer({
   passingScore: number;
   onAnswerChange: (quizId: string, answerIndex: number) => void;
   onSubmit: (quizId: string, score: number, passed: boolean) => void;
-  onSubmitSummary: (averageScore: number, passed: boolean) => void;
+  onSubmitSummary: (averageScore: number, passed: boolean) => void | Promise<void>;
   onRetry: () => void;
 }) {
   const allSubmitted = quizzes.every((quiz) => submitted[quiz.id]);
   const allAnswered = quizzes.every((quiz) => answers[quiz.id] && answers[quiz.id].length > 0);
 
-  const handleSubmitAll = () => {
+  const handleSubmitAll = async () => {
     if (!allAnswered) return;
 
     let totalScore = 0;
@@ -990,7 +1108,7 @@ function QuizTestViewer({
 
     const averageScore = Math.round(totalScore / quizzes.length);
     const isTotalPassed = averageScore >= passingScore;
-    onSubmitSummary(averageScore, isTotalPassed);
+    await onSubmitSummary(averageScore, isTotalPassed);
   };
 
   if (allSubmitted) {

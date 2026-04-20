@@ -35,7 +35,9 @@ export const authConfig = {
       const isAuthRoute = nextUrl.pathname.startsWith('/auth');
       const isAssessmentRoute = nextUrl.pathname.startsWith('/assessment');
 
-      // 0. Public assessment routes - always allowed without login
+      // Public assessment routes: intentionally unauthenticated.
+      // Assessments are shared via link (like Google Forms) for external participants.
+      // Security relies on unguessable UUIDs as assessment IDs.
       if (isAssessmentRoute) {
         return true;
       }

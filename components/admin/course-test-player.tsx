@@ -591,14 +591,22 @@ export function CourseTestPlayer({ course, allLessons }: CourseTestPlayerProps) 
           </div>
         </div>
       </div>
-      {currentLesson && (
-        <LessonAssistant
-          lessonTitle={currentLesson.title}
-          lessonContent={currentLesson.content}
-          position="left"
-          className="md:w-[24vw] w-[90vw]"
-        />
-      )}
+      {currentLesson && (() => {
+        const currentModule = course.modules.find((m: any) => m.id === currentLesson.moduleId);
+        const moduleLessons = currentModule
+          ? currentModule.lessons.map((l: any) => ({ title: l.title, content: l.content }))
+          : [{ title: currentLesson.title, content: currentLesson.content }];
+        return (
+          <LessonAssistant
+            courseTitle={course.title}
+            moduleTitle={currentModule?.title ?? currentLesson.moduleTitle}
+            currentLessonTitle={currentLesson.title}
+            moduleLessons={moduleLessons}
+            position="left"
+            className="md:w-[24vw] w-[90vw]"
+          />
+        );
+      })()}
     </div>
   );
 }
