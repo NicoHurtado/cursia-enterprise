@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, CheckCircle, XCircle, Calendar, Users } from "lucide-react";
+import { Upload, FileText, CheckCircle, XCircle, Calendar, Users, Pencil, X, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,6 +27,49 @@ export function CompanyManager({ company }: CompanyManagerProps) {
   const [manualEmail, setManualEmail] = useState("");
   const [manualAdding, setManualAdding] = useState(false);
   const [manualResult, setManualResult] = useState<{ success?: boolean; error?: string } | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", nationalId: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const handleEditStart = (user: any) => {
+    setEditingUserId(user.id);
+    setEditForm({
+      name: user.name || "",
+      email: user.email || "",
+      nationalId: user.nationalId || "",
+    });
+    setEditError(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingUserId(null);
+    setEditError(null);
+  };
+
+  const handleEditSave = async (userId: string) => {
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/admin/preregistered-users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      if (res.ok) {
+        setEditingUserId(null);
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEditError(data.error || "Error al guardar los cambios");
+      }
+    } catch {
+      setEditError("Error al guardar los cambios");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const [contractForm, setContractForm] = useState({
     startDate: "",
     endDate: "",
@@ -454,36 +497,110 @@ export function CompanyManager({ company }: CompanyManagerProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {company.preRegisteredUsers.map((user: any) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.nationalId || "-"}</TableCell>
-                      <TableCell>
-                        {user.isRegistered ? (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" /> Registrado
-                          </span>
-                        ) : (
-                          <span className="text-yellow-600 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Pendiente
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DeleteButton
-                          id={user.id}
-                          endpoint="/api/admin/preregistered-users"
-                          itemName="usuario"
-                          variant="ghost"
-                          size="sm"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {company.preRegisteredUsers.map((user: any) => {
+                    const isEditing = editingUserId === user.id;
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.name}
+                              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                              placeholder="Nombre completo"
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            <span className={!user.name ? "text-muted-foreground italic" : ""}>
+                              {user.name || "Sin nombre"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              type="email"
+                              value={editForm.email}
+                              onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            user.email
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editForm.nationalId}
+                              onChange={(e) => setEditForm({ ...editForm, nationalId: e.target.value })}
+                              placeholder="Cédula"
+                              className="h-8 text-sm"
+                            />
+                          ) : (
+                            user.nationalId || "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {user.isRegistered ? (
+                            <span className="text-green-600 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" /> Registrado
+                            </span>
+                          ) : (
+                            <span className="text-yellow-600 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" /> Pendiente
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 px-2"
+                                disabled={editSaving}
+                                onClick={() => handleEditSave(user.id)}
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-500 hover:text-slate-700 h-8 px-2"
+                                disabled={editSaving}
+                                onClick={handleEditCancel}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                              {editError && (
+                                <span className="text-xs text-red-600 ml-1">{editError}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2"
+                                onClick={() => handleEditStart(user)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <DeleteButton
+                                id={user.id}
+                                endpoint="/api/admin/preregistered-users"
+                                itemName="usuario"
+                                variant="ghost"
+                                size="sm"
+                              />
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {company.preRegisteredUsers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
                         No hay usuarios pre-registrados
                       </TableCell>
                     </TableRow>
