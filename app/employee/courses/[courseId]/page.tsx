@@ -31,6 +31,11 @@ async function getCourse(courseId: string, userId: string) {
       },
       lessonProgress: true,
       moduleProgress: true,
+      evaluationAttempts: {
+        orderBy: { completedAt: "desc" },
+        take: 1,
+        select: { score: true, passed: true, answers: true },
+      },
       company: {
         include: {
           contracts: {
@@ -60,11 +65,6 @@ export default async function CoursePage({
 
   const { courseId } = await params;
   const enrollment = await getCourse(courseId, session.user.id);
-
-  if (enrollment) {
-    console.log("SERVER DEBUG: Course Title:", enrollment.course.title);
-    console.log("SERVER DEBUG: Final Eval:", enrollment.course.finalEvaluation);
-  }
 
   if (!enrollment) {
     notFound();

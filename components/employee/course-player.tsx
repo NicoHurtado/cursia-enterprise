@@ -85,13 +85,16 @@ interface CoursePlayerProps {
       moduleId: string;
       completed: boolean;
     }>;
+    evaluationAttempts?: Array<{
+      score: number;
+      passed: boolean;
+      answers: any;
+    }>;
   };
 }
 
 export function CoursePlayer({ enrollment }: CoursePlayerProps) {
   const course = enrollment.course;
-  console.log("DEBUG: Course", course);
-  console.log("DEBUG: Final Eval", course.finalEvaluation);
 
   // Flatten lessons for easier navigation
   const allLessons = course.modules.flatMap((module) =>
@@ -102,6 +105,8 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
     }))
   );
 
+  const latestAttempt = enrollment.evaluationAttempts?.[0] ?? null;
+
   const [currentLessonIndex, setCurrentLessonIndex] = useState(() => {
     const completedIds = new Set(
       enrollment.lessonProgress.filter(lp => lp.completed).map(lp => lp.lessonId)
@@ -111,7 +116,14 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
     return firstUncompleted === -1 ? Math.max(0, allLessons.length - 1) : firstUncompleted;
   });
   const [viewMode, setViewMode] = useState<"lesson" | "quiz" | "flashcard" | "evaluation" | "taking_evaluation" | "evaluation_result">("lesson");
-  const [evaluationResult, setEvaluationResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [evaluationResult, setEvaluationResult] = useState<{ score: number; passed: boolean; feedback?: string } | null>(() => {
+    if (!latestAttempt) return null;
+    return {
+      score: latestAttempt.score,
+      passed: latestAttempt.passed,
+      feedback: (latestAttempt.answers as any)?.grading?.overallFeedback ?? undefined,
+    };
+  });
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number[]>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Record<string, boolean>>({});
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
@@ -353,7 +365,7 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       } else if (course.finalEvaluation) {
-        setViewMode("evaluation");
+        setViewMode(latestAttempt ? "evaluation_result" : "evaluation");
         setQuizAnswers({});
         setQuizSubmitted({});
         return;
@@ -640,7 +652,7 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                               ? "border-2 border-slate-200 hover:border-indigo-200 hover:bg-indigo-50 text-slate-600"
                               : "border-2 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
                         )}
-                        onClick={() => (allQuizzesPassed || allQuizzesInCourse.length === 0 || !course.isStrictNavigation) && setViewMode("evaluation")}
+                        onClick={() => (allQuizzesPassed || allQuizzesInCourse.length === 0 || !course.isStrictNavigation) && setViewMode(latestAttempt ? "evaluation_result" : "evaluation")}
                       >
                         {course.isStrictNavigation && !allQuizzesPassed && allQuizzesInCourse.length > 0 ? (
                           <Lock className="w-5 h-5 mr-3 text-slate-400" />
@@ -760,10 +772,14 @@ export function CoursePlayer({ enrollment }: CoursePlayerProps) {
                       const result = await response.json();
                       setEvaluationResult(result);
                       setViewMode("evaluation_result");
+                    } else {
+                      const err = await response.json().catch(() => ({}));
+                      console.error("Error calificando evaluación:", err);
+                      alert("Hubo un error al calificar la evaluación. Por favor intenta de nuevo.");
                     }
                   } catch (error) {
                     console.error("Error submitting evaluation:", error);
-                    alert("Error al enviar la evaluación");
+                    alert("Hubo un error al enviar la evaluación. Por favor intenta de nuevo.");
                   }
                 }}
               />
